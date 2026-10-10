@@ -171,6 +171,8 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
     <div class="row">
       <button type="button" id="hidectl">Hide controls</button>
       <button type="button" id="copylink">Copy JSON settings</button>
+      <button type="button" id="copyqlink">Copy share link</button>
+      <label class="chk"><input type="checkbox" id="qanchor"> use #anchor, not ?query</label>
       <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
     </div>
     <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
@@ -198,8 +200,13 @@ var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
 var $ = function (id) { return document.getElementById(id); };
 var CS = window.CardShare;
-/* Config sources, later wins: ?query (standalone only, never reaches an artifact) < window.CARD_CONFIG (baked) < #hash tokens. */
+/* Config sources, later wins: ?text= etc < window.CARD_CONFIG (baked) < saved < ?c= < #hash tokens. */
 var HASH0 = CS.parseHash(location.hash);
+/* ?c=<base64url of the UTF-8 JSON config>: obfuscation only, not security. Validated by CS.decodeConfig (whitelisted keys, clamped values, never 'lock'). */
+/* Same token as a pseudo query param in the anchor: #c=<token> or #?c=<token> (never sent to the server). ?c= wins if both are present. */
+var PSEUDO_RE = /^#\??(?:[^#]*&)?c=([A-Za-z0-9_-]+={0,2})/;
+var QCFG = null; try { var _qc = Q.get('c'), _hm = PSEUDO_RE.exec(location.hash); if (!_qc && _hm) _qc = _hm[1]; if (_qc) QCFG = CS.decodeConfig(_qc.replace(/=+$/, '')); } catch (e) { QCFG = null; }
+var SHARED = !!(HASH0.config || QCFG);
 var BAKED = CS.validate(window.CARD_CONFIG || {}), LOCKED = !!(window.CARD_CONFIG && window.CARD_CONFIG.lock);
 var reduced = Q.get('reduced') === '1' || HASH0.reduced || !!(window.CARD_CONFIG && window.CARD_CONFIG.reduced) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -242,7 +249,7 @@ if (BG_OK.indexOf(S.bg) < 0) S.bg = 'die';
    Order, later wins: defaults < baked < saved < #hash. A share link or locked page never loads saved state. */
 var STORE_KEY = 'cardLab.cfg.v1', STORED = null;
 try { var _st = localStorage.getItem(STORE_KEY); if (_st) STORED = CS.decodeConfig(_st); } catch (e) { STORED = null; }
-mergeCfg(BAKED); if (STORED && !HASH0.config && !LOCKED) mergeCfg(STORED); mergeCfg(HASH0.config);
+mergeCfg(BAKED); if (STORED && !SHARED && !LOCKED) mergeCfg(STORED); mergeCfg(QCFG); mergeCfg(HASH0.config);
 var K = {                       // tuning knobs (see refs/glass-card.md)
   tickMs: 75, cubeSize: 0.86, glyphSize: 1.1, maxTilt: 1.05,
   turnUp: 1 / 0.07, turnDown: 1 / 0.2, turnDownLocked: 1 / 0.3,
@@ -912,7 +919,7 @@ function cfgKey() { return [S.text, S.text2, S.mode2, S.tight, SEED0].join('|');
 /* Save this viewer's settings (debounced; skipped on share links and locked pages). Message text is saved when applied, not while typing. */
 var saveT = 0;
 function saveState() {
-  if (LOCKED || HASH0.config) return;
+  if (LOCKED || SHARED) return;
   clearTimeout(saveT);
   saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, CS.encodeConfig(currentCfg())); } catch (e) {} }, 400);
 }
@@ -953,13 +960,22 @@ $('copylink').addEventListener('click', function () {
   var sel = function () { try { var r = document.createRange(); r.selectNodeContents(out); var g = getSelection(); g.removeAllRanges(); g.addRange(r); } catch (e) {} setStatus('Select and copy the JSON shown below.'); };
   try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { setStatus('JSON settings copied. Paste them to Claude.'); }, sel); else sel(); } catch (e) { sel(); }
 });
-window.addEventListener('hashchange', function () { applyHash(location.hash); });
+/* Share link: this page's URL with ?c=<base64url JSON>. Anyone opening it sees these settings; encoding is not encryption. */
+$('copyqlink').addEventListener('click', function () {
+  var cfg = CS.validate(currentCfg()); if ($('incclean').checked) cfg.hide = true;
+  var tok = CS.encodeConfig(cfg).slice(2), url = location.href.split(/[?#]/)[0] + ($('qanchor').checked ? '#c=' : '?c=') + tok, out = $('linkout');
+  out.textContent = url; out.style.whiteSpace = 'normal'; out.hidden = false; $('linknote').hidden = true;
+  $('linkwarn').hidden = url.length <= 2000; if (url.length > 2000) $('linkwarn').textContent = 'Long link (' + url.length + ' characters); some apps may cut it.';
+  var sel = function () { try { var r = document.createRange(); r.selectNodeContents(out); var g = getSelection(); g.removeAllRanges(); g.addRange(r); } catch (e) {} setStatus('Select and copy the link shown below.'); };
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { setStatus('Share link copied.'); }, sel); else sel(); } catch (e) { sel(); }
+});
+window.addEventListener('hashchange', function () { if (PSEUDO_RE.test(location.hash)) { location.reload(); return; } applyHash(location.hash); });
 window.addEventListener('message', function (e) {
   if (e.source !== window.parent || !e.data || e.data.type !== 'card-hash' || typeof e.data.hash !== 'string') return;
   applyHash(e.data.hash);
 });
 try { if (window.parent !== window) window.parent.postMessage({ type: 'card-ready' }, '*'); } catch (e) {}
-setClean(HASH0.clean || !!BAKED.hide || LOCKED);
+setClean(HASH0.clean || !!BAKED.hide || !!(QCFG && QCFG.hide) || LOCKED);
 if (HASH0.debug) startDebug();
 
 /* Pointer -> circuit background. No-op without hoverAt/pulseAt (old circuit-bg.js) and in reduced motion. */
