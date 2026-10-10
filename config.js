@@ -1,0 +1,25 @@
+/* Presets for this card. "hide": true starts with the controls hidden (press c to show them). */
+window.CARD_CONFIG = {
+  "m": "THANK YOU,\nKimber!",
+  "m2": "I really appreciated the time and thoughtful interview questions, and look forward to hearing from you again😊",
+  "s2": "decode",
+  "lay": "tight",
+  "bg": "pcb",
+  "pal": "tron",
+  "seed": 11,
+  "spd": 0.65,
+  "crawlK": 0.03,
+  "blurPx": 2.7,
+  "cseed": 906537,
+  "letters": true,
+  "cubes": false,
+  "linked": true,
+  "lanes": true,
+  "sweep": true,
+  "crawl": true,
+  "blur": true,
+  "runes": false,
+  "cpulse": true,
+  "pvar": true,
+  "hide": true
+};

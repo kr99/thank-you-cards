@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thank You Card</title>
+<!--
+  glass-card.html  --  integration page. Written for this project (no third-party code copied).
+  three.js r149 (MIT, https://github.com/mrdoob/three.js) from jsDelivr, pinned.
+  Local modules: glyph-engine.js, circuit-bg.js, slide-lanes.js (all original, see refs/*.md).
+  Fonts: Google Fonts CSS only (UI fonts + the glyph engine's OFL fonts).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #070a10; --panel: #0e131c; --line: #243040; --fg: #e8eef6; --muted: #93a1b4;
+  --accent: #6ee7d8; --accent-ink: #04201c;
+  --display: "Chakra Petch", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 20px 16px 40px; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font: 600 13px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#stage { --ar: 1.75; position: relative; width: min(100%, calc(72vh * var(--ar))); aspect-ratio: var(--ar); margin: 0 auto;
+  background: #05070b; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .18s linear; }
+#stage.fading canvas { opacity: 0; }
+#status { margin: 0; text-align: center; color: var(--muted); font-size: 13px; min-height: 1.5em; }
+.ctrl { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 6px; display: block; }
+button, input[type=text], input[type=number], textarea, select { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; min-height: 40px; padding: 8px 12px; }
+button { cursor: pointer; }
+button:hover { border-color: #3a4d66; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+input[type=range] { width: 100%; min-height: 40px; accent-color: var(--accent); }
+.cc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; align-items: end; }
+.cc > div { display: grid; gap: 4px; min-width: 0; } .cc output { font: 12px ui-monospace, monospace; color: var(--muted); }
+.cc input[type=number], .cc input[type=text] { width: 100%; } .cc :disabled { opacity: .5; cursor: not-allowed; }
+button svg.die { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, .seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.msg { flex: 1 1 220px; display: grid; min-width: 0; }
+textarea { width: 100%; resize: vertical; line-height: 1.35; font-family: var(--body); }
+.msg.small textarea { font-size: 13px; min-height: 0; }
+.cnt { font: 12px ui-monospace, monospace; color: var(--muted); margin: 4px 0 0; }
+.warn { color: #ffcf8a; font-size: 12.5px; margin: 4px 0 0; }
+.chk { display: inline-flex; gap: 8px; align-items: center; min-height: 40px; font-size: 13px; color: var(--muted); }
+#sec { position: absolute; left: 0; right: 0; bottom: 0; perspective: 700px; pointer-events: none; color: #e8eef6; font: 500 14px var(--body); overflow: hidden; }
+#sec[hidden] { display: none; }
+#sec .ln { position: absolute; left: 0; right: 0; }
+#sec .ch { position: absolute; top: 0; white-space: pre; line-height: 1.25; transform-origin: 50% 50%; will-change: transform, opacity; text-shadow: 0 0 12px rgba(110,231,216,.25); }
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; min-height: 40px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 5px; background: #131b27; }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.sw { display: inline-flex; align-items: center; gap: 8px; }
+.sw[aria-checked="true"], .chain[aria-pressed="true"] { border-color: var(--accent); }
+.sw .dot { width: 26px; height: 14px; border-radius: 8px; background: #2a3646; position: relative; flex: none; }
+.sw .dot::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #9aa8ba; transition: transform .15s; }
+.sw[aria-checked="true"] .dot { background: var(--accent); }
+.sw[aria-checked="true"] .dot::after { transform: translateX(12px); background: var(--accent-ink); }
+.chain { width: 44px; padding: 0; display: inline-grid; place-items: center; color: var(--muted); }
+.chain[aria-pressed="true"] { color: var(--accent); }
+.chain svg { width: 22px; height: 22px; }
+.chain .broken { display: none; } .chain[aria-pressed="false"] .whole { display: none; } .chain[aria-pressed="false"] .broken { display: inline; }
+.feat { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.note { color: var(--muted); font-size: 12.5px; margin: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.clean #ctrl, body.clean h1, body.clean #status { display: none; }
+body.clean main { padding-block: 0; min-height: 100vh; align-content: center; }
+body.clean #stage { width: min(100%, calc(100vh * var(--ar))); border-radius: 0; }
+#cleanbar { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; gap: 8px; }
+#cleanbar button { min-height: 32px; padding: 4px 10px; font-size: 12px; opacity: .35; }
+#cleanbar button:hover, #cleanbar button:focus-visible { opacity: 1; }
+body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
+#linkout { font: 12px ui-monospace, monospace; color: var(--fg); word-break: break-all; user-select: all; margin: 0; padding: 8px; background: #0b1017; border: 1px solid var(--line); border-radius: 5px; }
+#stage canvas { touch-action: manipulation; }
+#debug { font: 12px ui-monospace, monospace; color: var(--muted); margin: 0; }
+@media (max-width: 480px) { body { padding-inline: 16px; } .row > button { flex: 1 1 auto; } }
+@media (prefers-reduced-motion: reduce) { #stage canvas { transition-duration: .2s; } .sw .dot::after { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Thank-you card cover</h1>
+  <div id="stage" role="img" aria-label="Glass cubes spelling the message"><canvas id="gl"></canvas><div id="sec" hidden></div></div>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <form class="ctrl" id="ctrl" autocomplete="off">
+    <div class="row">
+      <button type="button" id="replay" class="primary">Replay</button>
+      <div class="msg">
+        <label class="lbl" for="msg">Message (up to 3 lines, Enter adds a line)</label>
+        <textarea id="msg" rows="3" maxlength="260" spellcheck="false" autocapitalize="off">THANK YOU</textarea>
+        <p class="cnt" id="msgcnt" aria-live="polite"></p>
+        <p class="warn" id="msgnote" hidden></p>
+        <p class="warn" id="emonote" hidden></p>
+      </div>
+      <button type="submit" id="setmsg">Set message</button>
+    </div>
+
+    <div class="row">
+      <div class="msg small">
+        <label class="lbl" for="msg2">Secondary message (up to 2 lines, optional)</label>
+        <textarea id="msg2" rows="2" maxlength="180" spellcheck="false" autocapitalize="off"></textarea>
+        <p class="cnt" id="msg2cnt" aria-live="polite"></p>
+      </div>
+      <div>
+        <label class="lbl" for="mode2">Secondary effect</label>
+        <select id="mode2"><option value="off" selected>Off</option><option value="fade">Fade</option><option value="decode">Decode</option></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <fieldset>
+        <legend>Background</legend>
+        <div class="seg" role="radiogroup" aria-label="Background">
+          <label><input type="radio" name="bg" id="bg-magitech" value="magitech"><span>Magitech</span></label>
+          <label><input type="radio" name="bg" id="bg-die" value="die" checked><span>Die</span></label>
+          <label><input type="radio" name="bg" id="bg-pcb" value="pcb"><span>PCB</span></label>
+          <label><input type="radio" name="bg" id="bg-veins" value="veins"><span>Veins</span></label>
+        </div>
+      </fieldset>
+      <div id="palwrap" hidden>
+        <label class="lbl" for="pal">Palette</label>
+        <select id="pal"></select>
+      </div>
+    </div>
+
+    <fieldset>
+      <legend>Circuit</legend>
+      <div class="cc">
+        <div><label class="lbl" for="spd">Circuit speed <output id="spd-o" for="spd"></output></label><input type="range" id="spd" min="0.05" max="2" step="0.05" value="0.6"></div>
+        <div><button type="button" class="sw" id="t-crawl" role="switch" aria-checked="true"><span class="dot"></span>Crawl after message resolves</button></div>
+        <div><label class="lbl" for="crawlK">Crawl factor (0.001 to 1)</label><input type="number" id="crawlK" min="0.001" max="1" step="any" value="0.01" inputmode="decimal"></div>
+        <div><button type="button" class="sw" id="t-blur" role="switch" aria-checked="true"><span class="dot"></span>Blur circuit after message resolves</button></div>
+        <div><label class="lbl" for="blurPx">Blur amount <output id="blurPx-o" for="blurPx"></output></label><input type="range" id="blurPx" min="0" max="6" step="0.1" value="1.5"></div>
+        <div><button type="button" class="sw" id="t-runes" role="switch" aria-checked="true"><span class="dot"></span>Runes</button></div>
+        <div><button type="button" class="sw" id="t-cpulse" role="switch" aria-checked="true"><span class="dot"></span>Click and hover pulses</button></div>
+        <div><button type="button" class="sw" id="t-pvar" role="switch" aria-checked="true"><span class="dot"></span>Pulse variation</button></div>
+        <div><label class="lbl" for="cseed">Circuit seed (number or any text)</label>
+          <div class="row"><input type="text" id="cseed" value="7" inputmode="numeric" autocomplete="off" spellcheck="false" style="flex:1 1 90px;min-width:0">
+          <button type="button" id="reseed"><svg class="die" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg>Randomize</button></div></div>
+      </div>
+      <p class="note" id="ccnote" hidden></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Motion features</legend>
+      <div class="feat">
+        <button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
+        <button type="button" class="chain" id="t-link" aria-pressed="true" aria-label="Link letter and cube rotation" title="Link letter and cube rotation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g class="whole"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></g>
+            <g class="broken"><path d="M9.5 14.5l-1 1a4.5 4.5 0 0 1-6.4-6.4l3-3a4.5 4.5 0 0 1 6.4 0"/><path d="M14.5 9.5l1-1a4.5 4.5 0 0 1 6.4 6.4l-3 3a4.5 4.5 0 0 1-6.4 0"/><path d="M12 3v2M12 19v2M3 12h0" opacity="0"/><path d="M8 4l1.2 2.2M16 20l-1.2-2.2"/></g>
+          </svg>
+        </button>
+        <button type="button" class="sw" id="t-cubes" role="switch" aria-checked="false"><span class="dot"></span>Cubes rotate</button>
+        <button type="button" class="sw" id="t-lanes" role="switch" aria-checked="false"><span class="dot"></span>Sliding lanes</button>
+        <button type="button" class="sw" id="t-sweep" role="switch" aria-checked="true"><span class="dot"></span>Light sweep</button>
+        <button type="button" class="sw" id="t-tight" role="switch" aria-checked="true"><span class="dot"></span>Tight spacing</button>
+      </div>
+      <p class="note" style="margin-top:8px">The chain only matters when letters and cubes both rotate: linked, they turn together; unlinked, they turn independently in opposite directions.</p>
+    </fieldset>
+    <div class="row">
+      <button type="button" id="hidectl">Hide controls</button>
+      <button type="button" id="copylink">Copy JSON settings</button>
+      <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
+    </div>
+    <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
+    <p class="warn" id="linkwarn" hidden></p>
+    <p class="note" id="linknote" hidden>Paste this JSON to Claude to build a new card with these settings preset. Press c to toggle controls.</p>
+    <p id="debug" hidden></p>
+  </form>
+</main>
+<div id="cleanbar"><button type="button" id="replayfloat" aria-label="Replay">Replay</button><button type="button" id="showctl" aria-label="Show controls">Show controls</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="config.js"></script>
+<script src="glyph-engine.js"></script>
+<script src="circuit-bg.js"></script>
+<script src="slide-lanes.js"></script>
+<script src="card-text.js"></script>
+<script src="card-timing.js"></script>
+<script src="card-share.js"></script>
+<script>
+(function () {
+'use strict';
+var CT = window.CardTiming, T2 = window.CardText;
+var G = window.GlyphEngine, CB = window.CircuitBG, SL = window.SlideLanes, T = window.THREE;
+var Q = new URLSearchParams(location.search);
+if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
+var $ = function (id) { return document.getElementById(id); };
+var CS = window.CardShare;
+/* Config sources, later wins: ?query (standalone only, never reaches an artifact) < window.CARD_CONFIG (baked) < #hash tokens. */
+var HASH0 = CS.parseHash(location.hash);
+var BAKED = CS.validate(window.CARD_CONFIG || {}), LOCKED = !!(window.CARD_CONFIG && window.CARD_CONFIG.lock);
+var reduced = Q.get('reduced') === '1' || HASH0.reduced || !!(window.CARD_CONFIG && window.CARD_CONFIG.reduced) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ------------------------------------------------------------ settings */
+var S = {
+  text: Q.get('text') || 'THANK YOU',  // typed casing is kept exactly (no uppercasing anywhere)
+  text2: '', mode2: 'off', tight: true,
+  bg: Q.get('bg') || 'die',            // DEFAULT_BG is die on purpose (see refs/glass-card.md); CB.variants really lists magitech, the switcher offers it
+  bgSeed: parseInt(Q.get('bgseed') || '7', 10),
+  seed: parseInt(Q.get('seed') || '11', 10),
+  letters: Q.get('letters') !== '0',
+  cubes: Q.get('cubes') === '1',
+  link: Q.get('link') !== '0',
+  lanes: Q.get('lanes') === '1',
+  sweep: Q.get('sweep') !== '0',
+  spd: 0.6, crawl: true, crawlK: 0.01, blur: true, blurPx: 1.5, runes: true, cpulse: true, pvar: true,  // bg controls; circuit seed = bgSeed (share key cseed), sim seed = seed (key seed)
+  colsOverride: parseInt(Q.get('cols') || '0', 10),
+  rowsOverride: parseInt(Q.get('rows') || '0', 10)
+};
+var BG_OK = CB.variants || ['die', 'pcb', 'veins'];
+var S2_OK = ['off', 'fade', 'decode'];
+var PAL = 'tron', SEED0 = S.seed;
+function mergeCfg(c) {  // validated config -> S (before first build)
+  if (!c) return;
+  if (c.m) S.text = c.m;
+  if (typeof c.m2 === 'string') S.text2 = c.m2;
+  if (c.s2 && S2_OK.indexOf(c.s2) >= 0) S.mode2 = c.s2;
+  if (c.lay) S.tight = c.lay === 'tight';
+  if (c.bg && BG_OK.indexOf(c.bg) >= 0) S.bg = c.bg;
+  if (c.pal) PAL = c.pal;
+  if (c.seed != null) { S.seed = c.seed; SEED0 = c.seed; }
+  ['letters', 'cubes', 'lanes', 'sweep'].forEach(function (k) { if (typeof c[k] === 'boolean') S[k] = c[k]; });
+  if (typeof c.linked === 'boolean') S.link = c.linked;
+  ['crawl', 'blur', 'runes', 'cpulse', 'pvar'].forEach(function (k) { if (typeof c[k] === 'boolean') S[k] = c[k]; });
+  ['spd', 'crawlK', 'blurPx'].forEach(function (k) { if (typeof c[k] === 'number') S[k] = c[k]; });
+  if (c.cseed != null) S.bgSeed = c.cseed;
+}
+if (BG_OK.indexOf(S.bg) < 0) S.bg = 'die';
+/* Saved state: this viewer's last settings, kept in localStorage (per browser; may be missing or throw, so every access is guarded).
+   Order, later wins: defaults < baked < saved < #hash. A share link or locked page never loads saved state. */
+var STORE_KEY = 'cardLab.cfg.v1', STORED = null;
+try { var _st = localStorage.getItem(STORE_KEY); if (_st) STORED = CS.decodeConfig(_st); } catch (e) { STORED = null; }
+mergeCfg(BAKED); if (STORED && !HASH0.config && !LOCKED) mergeCfg(STORED); mergeCfg(HASH0.config);
+var K = {                       // tuning knobs (see refs/glass-card.md)
+  tickMs: 75, cubeSize: 0.86, glyphSize: 1.1, maxTilt: 1.05,
+  turnUp: 1 / 0.07, turnDown: 1 / 0.2, turnDownLocked: 1 / 0.3,
+  actUp: 7, actDown: 1.7, refr: 0.5, dim: 0.78, bgFps: 30, bgSize: 1024,
+  lanesSolveAt: 1.5, sweepDur: 1.2, fov: 20
+};
+
+/* ------------------------------------------------------------ GLSL */
+var BG_GLSL =
+ 'uniform sampler2D uBg; uniform vec2 uRes; uniform vec2 uCover; uniform float uDim; uniform float uBgLod;\n' +
+ 'vec3 bgShade(vec2 su){ vec2 uv=(su-.5)*uCover+.5; vec3 c=texture2D(uBg,uv,uBgLod).rgb*uDim;\n' +
+ '  vec2 d=su-.5; c*=1.-.55*dot(d,d)*1.6; return c; }\n';
+
+var BG_VS = 'void main(){ gl_Position = vec4(position.xy, 0., 1.); }';
+var BG_FS = BG_GLSL + 'void main(){ gl_FragColor = vec4(bgShade(gl_FragCoord.xy/uRes), 1.); }';
+
+var CUBE_VS =
+ 'attribute vec3 aPos; attribute vec2 aCube; attribute vec2 aLet; attribute vec4 aUV; attribute vec4 aFx; attribute vec2 aMot; attribute vec4 aGly;\n' +
+ 'uniform vec3 uCam; uniform float uSize;\n' +
+ 'varying vec3 vLocal; varying vec3 vNrm; varying vec3 vWRel; varying vec3 vCRel; varying vec3 vWorld;\n' +
+ 'varying mat3 vRc; varying vec2 vLet; varying vec4 vUV; varying vec4 vFx; varying vec2 vMot; varying vec4 vGly;\n' +
+ 'mat3 rotX(float a){ float c=cos(a), s=sin(a); return mat3(1.,0.,0., 0.,c,s, 0.,-s,c); }\n' +
+ 'mat3 rotY(float a){ float c=cos(a), s=sin(a); return mat3(c,0.,-s, 0.,1.,0., s,0.,c); }\n' +
+ 'void main(){\n' +
+ '  mat3 R = rotY(aCube.y) * rotX(aCube.x);\n' +
+ '  vec3 wr = R * (position * uSize * aGly.x);\n' +
+ '  vec3 w = aPos + wr;\n' +
+ '  vLocal = position; vNrm = normal; vWRel = wr; vCRel = uCam - aPos; vWorld = w; vRc = R;\n' +
+ '  vLet = aLet; vUV = aUV; vFx = aFx; vMot = aMot; vGly = aGly;\n' +
+ '  gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.);\n' +
+ '}';
+
+var CUBE_FS = BG_GLSL +
+ 'uniform sampler2D uAtlas; uniform float uTime, uCellPx, uRefr, uClip, uGlyphSize; uniform vec2 uHalf;\n' +
+ 'varying vec3 vLocal; varying vec3 vNrm; varying vec3 vWRel; varying vec3 vCRel; varying vec3 vWorld;\n' +
+ 'varying mat3 vRc; varying vec2 vLet; varying vec4 vUV; varying vec4 vFx; varying vec2 vMot; varying vec4 vGly;\n' +
+ 'mat3 rotX(float a){ float c=cos(a), s=sin(a); return mat3(1.,0.,0., 0.,c,s, 0.,-s,c); }\n' +
+ 'mat3 rotY(float a){ float c=cos(a), s=sin(a); return mat3(c,0.,-s, 0.,1.,0., s,0.,c); }\n' +
+ 'float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }\n' +
+ 'float gA(vec2 q, float bias){ return texture2D(uAtlas, mix(vUV.xy, vUV.zw, clamp(q,0.,1.)), bias).a; }\n' +
+ 'vec4 gE(vec2 q, float bias){ vec4 s=texture2D(uAtlas, mix(vUV.xy, vUV.zw, clamp(q,0.,1.)), bias); return vec4(s.rgb*s.a, s.a); }\n' +
+ 'void main(){\n' +
+ '  vec3 wpos = vWorld;\n' +
+ '  if (uClip > .5 && (abs(wpos.x - 0.) > uHalf.x || abs(wpos.y) > uHalf.y)) discard;\n' +
+ '  float blur = vFx.x, act = vFx.y, shine = vFx.z, seed = vFx.w;\n' +
+ '  vec3 N = normalize(vNrm);\n' +
+ '  vec3 tc = vLocal * (vec3(1.) - abs(N));\n' +
+ '  vec3 push = sign(tc) * pow(smoothstep(.5-.17, .5, abs(tc)), vec3(1.5));\n' +
+ '  vec3 nl = normalize(N + push * 1.3);\n' +
+ '  vec3 nw = normalize(vRc * nl);\n' +
+ '  float bevel = clamp(length(push), 0., 1.);\n' +
+ '  float edgeLine = smoothstep(.47, .5, max(abs(tc.x), max(abs(tc.y), abs(tc.z))));\n' +
+ '  vec3 V = normalize(vCRel - vWRel);\n' +
+ '  // letter plane\n' +
+ '  mat3 RL = rotY(vLet.y) * rotX(vLet.x);\n' +
+ '  vec3 nL = RL * vec3(0.,0.,1.);\n' +
+ '  float tilt = length(nL.xy);\n' +
+ '  // refraction offset in screen uv\n' +
+ '  vec2 off = nw.xy * 0.75 + nL.xy * 0.42 * (1. - .55*bevel);\n' +
+ '  vec2 k = off * uRefr * act * uCellPx / uRes;\n' +
+ '  vec2 su = gl_FragCoord.xy / uRes;\n' +
+ '  float disp = 0.14;\n' +
+ '  vec3 col = vec3(bgShade(su - k * (1.+disp)).r, bgShade(su - k).g, bgShade(su - k * (1.-disp)).b);\n' +
+ '  float mot = length(vMot);\n' +
+ '  if (mot > .02){ vec2 m = vMot / uRes * uCellPx * .22; col = mix(col, .5*(bgShade(su-k+m)+bgShade(su-k-m)), clamp(mot*.5,0.,.7)); }\n' +
+ '  float bgA = smoothstep(0., .08, act);\n' +
+ '  // glyph by ray / tilted plane intersection (world-relative frame)\n' +
+ '  vec3 ink = vec3(0.); vec3 emoCol = vec3(1.);\n' +
+ '  if (vUV.z > vUV.x) {\n' +
+ '    vec3 o = vCRel; vec3 d = normalize(vWRel - vCRel);\n' +
+ '    float dn = dot(d, nL);\n' +
+ '    if (abs(dn) > .02) {\n' +
+ '      float t = -dot(o, nL) / dn;\n' +
+ '      if (t > length(vWRel - vCRel) - .001) {\n' +
+ '        vec3 p = o + t * d;\n' +
+ '        vec3 q3 = p * RL;\n' +
+ '        float gsz = uGlyphSize * vGly.x; vec2 uvq = (q3.xy - vec2(0., vGly.z * gsz)) / gsz + .5;\n' +
+ '        if (uvq.x > 0. && uvq.x < 1. && uvq.y > 0. && uvq.y < 1.) {\n' +
+ '          float tk = floor(uTime * 22. + seed * 7.);\n' +
+ '          float band = floor(uvq.y * 9.);\n' +
+ '          float glitchOn = step(.5, hash(vec2(band, tk + seed))) * step(.12, blur);\n' +
+ '          uvq.x += (hash(vec2(band + 3., tk)) - .5) * .2 * glitchOn * blur;\n' +
+ '          float ca = .004 + blur * .05 + tilt * .012;\n' +
+ '          if (vGly.w > .5) {\n' +   // color emoji: sample rgba, never tint; same blur and glitch as text
+ '            vec4 e = vec4(0.);\n' +
+ '            if (blur < .02) { e = gE(uvq, 0.); }\n' +
+ '            else {\n' +
+ '              float rb = blur * .1; float a0 = hash(vec2(seed, tk)) * 6.2832; float bias = blur * 2.4;\n' +
+ '              for (int i = 0; i < 6; i++) { float an = a0 + float(i) * 1.0472; e += gE(uvq + vec2(cos(an), sin(an)) * rb * (.55 + .45 * hash(vec2(float(i), tk + seed))), bias); }\n' +
+ '              e /= 6.; e.a *= 1. + blur * .5;\n' +
+ '            }\n' +
+ '            ink = vec3(e.a); emoCol = e.rgb / max(e.a, .001);\n' +
+ '          } else if (blur < .02) {\n' +
+ '            ink = vec3(gA(uvq + vec2(ca,0.), 0.), gA(uvq, 0.), gA(uvq - vec2(ca,0.), 0.));\n' +
+ '          } else {\n' +
+ '            float rb = blur * .1; float a0 = hash(vec2(seed, tk)) * 6.2832; float bias = blur * 2.4;\n' +
+ '            for (int i = 0; i < 6; i++) {\n' +
+ '              float an = a0 + float(i) * 1.0472;\n' +
+ '              vec2 b = uvq + vec2(cos(an), sin(an)) * rb * (.55 + .45 * hash(vec2(float(i), tk + seed)));\n' +
+ '              ink += vec3(gA(b + vec2(ca,0.), bias), gA(b, bias), gA(b - vec2(ca,0.), bias));\n' +
+ '            }\n' +
+ '            ink /= 6.; ink *= 1. + blur * .5;\n' +
+ '          }\n' +
+ '          ink *= (.8 + .2 * abs(nL.z));\n' +
+ '        }\n' +
+ '      }\n' +
+ '    }\n' +
+ '  }\n' +
+ '  ink = clamp(ink, 0., 1.);\n' +
+ '  vec3 inkc = vGly.w > .5 ? emoCol : vec3(.94, .975, 1.);\n' +
+ '  vec3 base = bgA * col;\n' +
+ '  vec3 rgb = base * (1. - ink) + inkc * ink;\n' +
+ '  float alpha = max(bgA, max(ink.r, max(ink.g, ink.b)));\n' +
+ '  // glass highlights on top (all scaled by activity / shine => invisible at rest)\n' +
+ '  vec3 L = normalize(vec3(-.5, .7, .65));\n' +
+ '  float spec = pow(max(dot(nw, normalize(L + V)), 0.), 36.);\n' +
+ '  float rim = pow(1. - max(dot(nw, V), 0.), 3.);\n' +
+ '  float lit = act * (.03 + .42 * bevel + .2 * rim + .45 * edgeLine) + shine * (.6 * bevel + .9 * edgeLine + .15);\n' +
+ '  vec3 hl = vec3(.55, .82, 1.) * lit * .8 + vec3(1.) * spec * act * (.35 + .8 * bevel);\n' +
+ '  float hlA = clamp(max(act, shine * .7), 0., 1.);\n' +
+ '  rgb += hl * hlA;\n' +
+ '  alpha = clamp(max(alpha, hlA * clamp(max(hl.r, max(hl.g, hl.b)) * 1.4, 0., 1.)), 0., 1.);\n' +
+ '  if (alpha < .003) discard;\n' +
+ '  gl_FragColor = vec4(rgb, alpha);\n' +
+ '}';
+
+/* ------------------------------------------------------------ message layout */
+function glen(x) { return T2.segment(x).length; }
+/* Casing is preserved. A single typed line longer than 7 graphemes is word-wrapped into 2-3 lines (as before); typed newlines are kept as is. */
+function wrapMsg(text) {
+  if (text.indexOf('\n') >= 0) return text.split('\n');
+  var gl = glen(text);
+  if (gl <= 7) return [text];
+  var k = Math.max(2, Math.min(3, Math.ceil(gl / 9))), words = text.split(' '), best = null;
+  (function rec(i, lines) {
+    if (i === words.length) { if (lines.length <= k) { var w = Math.max.apply(null, lines.map(glen)); var sc = w * 10 + lines.length; if (!best || sc < best.sc) best = { sc: sc, lines: lines.slice() }; } return; }
+    if (lines.length < k) rec(i + 1, lines.concat([words[i]]));
+    if (lines.length) { var l = lines.slice(); l[l.length - 1] += ' ' + words[i]; rec(i + 1, l); }
+  })(0, []);
+  return best ? best.lines : [text];
+}
+/* raw text -> {text (sanitized, same as share tokens), lines:[[g..]..], notes[]} */
+function parsePrimary(raw) {
+  var info = CS.sanitizeInfo(raw, CS.MAX_LINES, CS.MAX_MSG), notes = [];
+  if (info.droppedLines) notes.push('Only the first ' + CS.MAX_LINES + ' lines are used; extra lines were dropped.');
+  if (info.truncated) notes.push('Trimmed to ' + CS.MAX_MSG + ' characters.');
+  var pm = T2.parseMessage(wrapMsg(info.text).join('\n'), { maxLines: 3, maxGraphemesPerLine: 40, maxTotal: 120 });
+  if (pm.truncated) notes.push('Trimmed to fit 40 characters per line / 120 in total.');
+  return { text: info.text, lines: pm.lines, notes: notes };
+}
+function parseSecondary(raw) { return CS.sanitizeInfo(raw, CS.MAX_LINES2, CS.MAX_MSG2); }
+
+/* ------------------------------------------------------------ renderer + scene */
+var canvas = $('gl'), stage = $('stage');
+var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x05070b, 1);
+renderer.autoClear = true;
+var scene = new T.Scene();
+var camera = new T.PerspectiveCamera(K.fov, 1.75, 0.1, 100);
+
+var bg = CB.create({ width: K.bgSize, height: K.bgSize, variant: S.bg, seed: S.bgSeed, pow2: true });
+var HAS_POINTER_API = typeof bg.hoverAt === 'function' && typeof bg.pulseAt === 'function';
+function applyPal(n) { n = n || 'tron'; if (!(CB.palettes && Object.prototype.hasOwnProperty.call(CB.palettes, n))) n = 'tron'; PAL = n; if (typeof bg.setPalette === 'function') { try { bg.setPalette(n); } catch (e) { PAL = 'tron'; } } }
+applyPal(PAL);
+var bgTex = new T.CanvasTexture(bg.canvas);
+bgTex.generateMipmaps = true; bgTex.minFilter = T.LinearMipmapLinearFilter;  // mips feed the post-resolve blur (uBgLod bias) bgTex.magFilter = T.LinearFilter;
+
+var atlas = new G.GlyphAtlas({ size: 2048, cellPx: 80, flipY: true, fallbackWhilePending: true });
+var atlasTex = new T.CanvasTexture(atlas.canvas);
+atlasTex.anisotropy = 4; atlasTex.generateMipmaps = true; atlasTex.minFilter = T.LinearMipmapLinearFilter;
+var atlasVersion = -1;
+atlas.onChange = function () { if (reduced) requestStatic(); };
+
+var fl = document.createElement('link'); fl.rel = 'stylesheet'; fl.href = G.googleFontsUrl(); document.head.appendChild(fl);
+
+var shared = {
+  uBg: { value: bgTex }, uRes: { value: new T.Vector2(1, 1) }, uCover: { value: new T.Vector2(1, 1) }, uDim: { value: K.dim }, uBgLod: { value: 0 }
+};
+var bgMesh = new T.Mesh(new T.PlaneGeometry(2, 2), new T.ShaderMaterial({
+  vertexShader: BG_VS, fragmentShader: BG_FS, uniforms: shared, depthTest: false, depthWrite: false }));
+bgMesh.frustumCulled = false; bgMesh.renderOrder = 0; scene.add(bgMesh);
+
+var cubeU = {
+  uBg: shared.uBg, uRes: shared.uRes, uCover: shared.uCover, uDim: shared.uDim, uBgLod: shared.uBgLod,
+  uAtlas: { value: atlasTex }, uTime: { value: 0 }, uCellPx: { value: 60 }, uRefr: { value: K.refr },
+  uClip: { value: 0 }, uGlyphSize: { value: K.glyphSize }, uHalf: { value: new T.Vector2(3.5, 2) },
+  uCam: { value: new T.Vector3(0, 0, 10) }, uSize: { value: K.cubeSize }
+};
+var cubeMat = new T.ShaderMaterial({
+  vertexShader: CUBE_VS, fragmentShader: CUBE_FS, uniforms: cubeU, transparent: true, depthTest: false, depthWrite: false,
+  side: T.FrontSide, blending: T.CustomBlending, blendSrc: T.OneFactor, blendDst: T.OneMinusSrcAlphaFactor,
+  blendSrcAlpha: T.OneFactor, blendDstAlpha: T.OneMinusSrcAlphaFactor
+});
+var cubeMesh = null, buf = null;
+
+/* ------------------------------------------------------------ world state */
+var W = { cols: 7, rows: 4, n: 28, sim: null, cells: [], lanes: null, laneT: 0, laneSolved: false, target: [], lines: [], sec: '', secExtra: 0, tlay: null, so: null, soT: -1, hasEmoji: false };
+var run = { t: 0, tickAcc: 0, startT: 0, state: 'idle', sweepT: -1, sweepDone: true, frames: 0, ms: 0, lockedAt: null, settledAt: null, phase: 'resolving', slideT: 0, bevel: 1, secondaryT: 0, doneSeen: false };
+var rng = G.createRng(S.seed * 7 + 3);          // build-time only: per-cell seed
+var rngDir = G.createRng(S.seed * 7 + 4);       // pickDir only
+var rngFlip = G.createRng(S.seed * 7 + 5);      // flip scheduling only
+var seedFn = window.__cardSeedFn || function () { return Math.floor(Math.random() * 1e6); };  // injectable reseed source
+var tmpCell = {}, rawStats = { ms: [] };
+
+function easeIO(x) { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
+
+var EM = 0.682;  // em in cell units: atlas fontScale .62 * glyph plane 1.1
+var advCtx = document.createElement('canvas').getContext('2d');
+/* Spacing must be measured in the font the letters END in (the sim's finalStyle), not in the first font of the list (Space Mono, monospace). */
+var FIN_STYLE = (function () { var f = (G.DEFAULT_CFG && G.DEFAULT_CFG.finalStyle) || { font: 'Playfair Display', weight: 800 }; return { fontIndex: (f.font in G.FONT_INDEX) ? G.FONT_INDEX[f.font] : 0, weight: f.weight || 400, italic: !!f.italic }; })();
+var TIGHT_TRACK = 0.03;  // extra air between letters after the slide, in cell units at scale 1 (raise for looser, 0 for none)
+function advUnits(g) {  // advance of one grapheme in cell units at scale 1 (typographic spacing)
+  try { return Math.max(.05, atlas.measure(g, FIN_STYLE, 100) / 100 * EM); } catch (e) { return .5 * EM; }
+}
+function retight() {  // recompute the tight layout from W.lines; also run when the first slide frame starts, once the final font has loaded
+  try { W.tlay = CT.tightLayout({ lines: W.lines, cols: W.cols, rows: W.rows, advanceFn: advUnits, T: T2, fontUnits: EM, maxScale: 1.2, tracking: TIGHT_TRACK }); } catch (e) { W.tlay = null; }
+  W.so = null; run.soT_ = -1;
+}
+function build(text) {
+  var P = parsePrimary(text), lines = P.lines;
+  if (!lines.length) { P = parsePrimary('THANK YOU'); lines = P.lines; }
+  var longest = Math.max.apply(null, lines.map(function (l) { return l.length; }));
+  var cols = S.colsOverride || clamp(longest + 2, 7, 42), rows = S.rowsOverride || clamp(lines.length + 2, 3, 5);
+  W.lines = lines; W.cols = cols; W.rows = rows; W.n = cols * rows; W.notes = P.notes;
+  W.hasEmoji = lines.some(function (l) { return l.some(function (g) { return T2.isEmoji(g); }); });
+  W.target = G.layoutText(lines, cols, rows);
+  var sec = parseSecondary(S.text2).text;
+  W.sec = (S.mode2 !== 'off' && sec) ? sec : ''; W.secExtra = W.sec ? 1.5 : 0;
+  run.tightFresh = false; retight();
+  if (cubeMesh) { scene.remove(cubeMesh); cubeMesh.geometry.dispose(); }
+  var N = W.n * 4, base = new T.BoxGeometry(1, 1, 1);
+  var geo = new T.InstancedBufferGeometry();
+  geo.index = base.index; geo.setAttribute('position', base.attributes.position); geo.setAttribute('normal', base.attributes.normal);
+  buf = {
+    pos: new Float32Array(N * 3), cube: new Float32Array(N * 2), let_: new Float32Array(N * 2),
+    uv: new Float32Array(N * 4), fx: new Float32Array(N * 4), mot: new Float32Array(N * 2), gly: new Float32Array(N * 4)
+  };
+  [['aPos', buf.pos, 3], ['aCube', buf.cube, 2], ['aLet', buf.let_, 2], ['aUV', buf.uv, 4], ['aFx', buf.fx, 4], ['aMot', buf.mot, 2], ['aGly', buf.gly, 4]].forEach(function (a) {
+    var at = new T.InstancedBufferAttribute(a[1], a[2]); at.setUsage(T.DynamicDrawUsage); geo.setAttribute(a[0], at);
+  });
+  geo.instanceCount = 0;
+  cubeMesh = new T.Mesh(geo, cubeMat); cubeMesh.frustumCulled = false; cubeMesh.renderOrder = 1; scene.add(cubeMesh);
+  stage.style.setProperty('--ar', ((cols + 0.8) / (rows + 0.8 + W.secExtra)).toFixed(4));
+  cubeU.uHalf.value.set(cols / 2, rows / 2);
+  W.lanes = null;
+  resize();
+  W.cells = [];
+  for (var i = 0; i < W.n; i++) W.cells.push({
+    shown: null, rect: null, pending: false, u: 0, dx: 0, dy: 1, sgn: 1, act: 0, blur: 0, blurPeak: 0, seed: rng(),
+    cax: 0, cay: 0, fl: null, nextFlip: 0, lx: 0, ly: 0, cx: 0, cy: 0, settled: true, shine: 0
+  });
+  stage.setAttribute('aria-label', 'Glass cubes spelling: ' + lines.map(function (l) { return l.join(''); }).join(' / '));
+  updateNotes();
+}
+function updateNotes() {
+  var en = $('emonote');
+  var bad = W.hasEmoji && atlas.emojiSupported && !atlas.emojiSupported();
+  en.hidden = !bad; en.textContent = bad ? 'No color emoji font was found on this device, so emoji cells show ? instead.' : '';
+  var mn = $('msgnote'), notes = W.notes || [];
+  mn.hidden = !notes.length; mn.textContent = notes.join(' ');
+}
+function linesText() { return W.lines.map(function (l) { return l.join(''); }).join(' / '); }
+
+function resize() {
+  var r = stage.getBoundingClientRect(), w = Math.max(2, Math.round(r.width)), h = Math.max(2, Math.round(r.height));
+  renderer.setSize(w, h, false);
+  var dpr = renderer.getPixelRatio();
+  shared.uRes.value.set(w * dpr, h * dpr);
+  var a = w / h; camera.aspect = a;
+  var H = W.rows + 0.8 + W.secExtra, Wd = W.cols + 0.8;
+  var needH = Math.max(H, Wd / a);
+  var D = (needH / 2) / Math.tan(T.MathUtils.degToRad(K.fov / 2));
+  var cy = -W.secExtra / 2;   // secondary text sits in the strip below the grid
+  camera.position.set(0, cy, D); camera.lookAt(0, cy, 0);
+  camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+  cubeU.uCam.value.copy(camera.position);
+  cubeU.uCellPx.value = (h * dpr) / needH;
+  shared.uCover.value.set(a > 1 ? 1 : a, a > 1 ? 1 / a : 1);
+  layoutSecondary();
+  if (reduced) requestStatic();
+}
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize', resize);
+
+/* ------------------------------------------------------------ play / replay */
+function setStatus(s) { $('status').textContent = s; }
+function pickDir(c) {
+  var a = rngDir() * Math.PI * 2;
+  c.dx = Math.sin(a); c.dy = Math.cos(a);
+  if (Math.abs(c.dx) < .25) c.dx = .25 * (c.dx < 0 ? -1 : 1);
+  var m = Math.hypot(c.dx, c.dy); c.dx /= m; c.dy /= m;
+  c.sgn = rngDir() < .5 ? -1 : 1; c.dx *= c.sgn; c.dy *= c.sgn;
+}
+
+function finishStatic() {
+  // final message without animation (reduced motion or fast-forward)
+  while (!W.sim.done && W.sim.tick < 400) W.sim.step();
+  W.cells.forEach(function (c, i) { c.shown = W.sim.cells[i]; c.pending = false; c.u = 0; c.act = 0; c.blur = 0; c.settled = true; c.shine = 0; c.lx = c.ly = c.cx = c.cy = 0; c.cax = c.cay = 0; c.fl = null; });
+  run.state = 'idle';
+}
+
+function play() {
+  W.sim = G.createSim({ cols: W.cols, rows: W.rows, target: W.target, seed: (S.seed++) * 31 + 5, cfg: { blankDelay: 12 } });
+  run.tickAcc = 0; run.startT = run.t; run.sweepT = -1; run.sweepDone = false; run.state = 'resolving';
+  run.ms = 0; run.lockedAt = null; run.settledAt = null; run.phase = 'resolving'; run.slideT = 0; run.bevel = 1; run.secondaryT = 0; run.doneSeen = false; run.crawlAt = null; run.blurAt = null; run.tightFresh = false; W.so = null; run.soT_ = -1; secState.key = '';
+  W.laneSolved = false; W.laneT = 0;
+  W.cells.forEach(function (c, i) {
+    c.shown = W.sim.cells[i]; c.pending = false; c.u = 0; c.blur = 0; c.blurPeak = .5; c.settled = false; c.shine = 0;
+    c.cax = Math.round(c.cax / (Math.PI / 2)) * (Math.PI / 2); c.cay = Math.round(c.cay / (Math.PI / 2)) * (Math.PI / 2);
+    c.fl = null; c.nextFlip = run.t + rngFlip() * .6; pickDir(c);
+  });
+  if (S.lanes) {
+    W.lanes = new SL({ cols: W.cols, rows: W.rows, seed: S.seed * 13, cfg: { maxConcurrent: 5, maxDist: 2 } });
+    W.lanes.scramble(Math.round((W.cols + W.rows) * 1.1));
+  } else W.lanes = null;
+  setStatus('Resolving…');
+  document.body.dataset.state = 'resolving'; document.body.dataset.phase = 'resolving';
+  if (reduced) { finishStatic(); fade(); setStatus('Message: ' + linesText()); }
+}
+
+function fade() {
+  stage.classList.add('fading');
+  setTimeout(function () { requestStatic(); stage.classList.remove('fading'); }, 190);
+}
+
+/* ------------------------------------------------------------ baseline-aware glyphs
+ * The atlas centers each glyph's INK vertically, so g/y/p and x-height letters do not share a baseline. Per glyph we measure
+ * the same font the atlas used and shift the quad (fraction of the glyph plane, + = up) so every baseline lands where a capital H's would.
+ * Capitals are unchanged (shift ~0). Not cached while the web font is still loading. UNVERIFIED in a real browser. */
+var bsCache = Object.create(null), bsCtx = document.createElement('canvas').getContext('2d');
+function baseShift(sh) {
+  var g = sh.glyph;
+  if (!g || g === ' ' || G.isEmoji(g)) return 0;
+  var key = g + '|' + sh.fontIndex + '|' + sh.weight + '|' + (sh.italic ? 1 : 0), v = bsCache[key];
+  if (v !== undefined) return v;
+  v = 0;
+  var ready = true;
+  try {
+    var px = Math.round(atlas.cellPx * atlas.fontScale);
+    if (document.fonts && document.fonts.check) ready = document.fonts.check(G.canvasFont(sh, 32), g);
+    bsCtx.font = G.canvasFont(sh, px);
+    var m = bsCtx.measureText(g), h = bsCtx.measureText('H'), a = m.actualBoundingBoxAscent, d = m.actualBoundingBoxDescent, ha = h.actualBoundingBoxAscent, hd = h.actualBoundingBoxDescent;
+    if (isFinite(a) && isFinite(d) && isFinite(ha) && isFinite(hd) && (a + d) > 0 && ha > 0) {
+      var k = m.width > atlas.cellPx * .88 ? atlas.cellPx * .88 / m.width : 1;   // the atlas shrinks wide glyphs
+      v = (((a - d) * k) - (ha - hd)) / 2 / atlas.cellPx;
+      v = Math.max(-.3, Math.min(.3, v));
+    }
+  } catch (e) { v = 0; ready = false; }
+  if (ready) bsCache[key] = v;
+  return v;
+}
+
+/* ------------------------------------------------------------ secondary message (plain DOM, textContent only)
+ * Fade: whole block fades. Decode: per-letter staggered scramble with CSS 3D rotateY + blur, no cubes. Deterministic (no Math.random). */
+var secEl = $('sec'), secCtx = document.createElement('canvas').getContext('2d');
+var secState = { spans: [], key: '', ver: 0 };
+var SEC_FONT = '"IBM Plex Sans", system-ui, sans-serif', SCR = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&@*+=<>?';
+function h32(a, b) { var x = (Math.imul(a + 1, 374761393) + Math.imul(b + 7, 668265263)) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; }
+function layoutSecondary() {
+  secEl.textContent = ''; secState.spans = []; secState.key = ''; secState.ver++;
+  if (!W.sec) { secEl.hidden = true; secEl.removeAttribute('aria-label'); return; }
+  secEl.hidden = false;
+  secEl.style.height = (W.secExtra / (W.rows + .8 + W.secExtra) * 100).toFixed(2) + '%';
+  var r = secEl.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return;   // stage hidden: retried by the ResizeObserver
+  secCtx.font = '500 100px ' + SEC_FONT;
+  var bw = r.width * .94, maxPx = Math.max(11, Math.min(30, r.height * .36));
+  var lay = T2.secondaryLayout(W.sec, { w: bw, h: r.height * .92 }, { advanceFn: function (g) { return secCtx.measureText(g).width; }, fontPx: 100, maxScale: maxPx / 100, minScale: .09, maxLines: 2, lineHeight: 1.25 });
+  secEl.setAttribute('role', 'img'); secEl.setAttribute('aria-label', W.sec.replace(/\n/g, ' '));
+  var top = Math.max(0, (r.height - lay.height) / 2), fs = 100 * lay.scale, left = (r.width - bw) / 2;
+  lay.lines.forEach(function (gs, li) {
+    var ln = document.createElement('div'); ln.className = 'ln'; ln.style.top = (top + li * lay.lineHeight) + 'px'; ln.style.height = lay.lineHeight + 'px';
+    ln.setAttribute('aria-hidden', 'true');
+    gs.forEach(function (g, k) {
+      var sp = document.createElement('span'); sp.className = 'ch'; sp.textContent = g; sp.style.fontSize = fs + 'px';
+      sp.style.left = (left + lay.positions[li].x[k]) + 'px'; ln.appendChild(sp);
+      secState.spans.push({ el: sp, g: g, shown: g, emo: T2.isEmoji(g), blank: /^\s+$/.test(g) });
+    });
+    secEl.appendChild(ln);
+  });
+  renderSecondary(true);
+}
+function renderSecondary(force) {
+  var n = secState.spans.length;
+  if (!W.sec || !n) return;
+  var mode = S.mode2, p = run.secondaryT, key = secState.ver + mode + Math.round(p * 1000);
+  if (!force && key === secState.key) return; secState.key = key;
+  if (mode === 'fade') { secEl.style.opacity = String(p * p * (3 - 2 * p)); return; }
+  secEl.style.opacity = '1';
+  var local = p * 1600, j, sp;   // decode runs 1600 ms (see tlOpts)
+  for (j = 0; j < n; j++) {
+    sp = secState.spans[j];
+    var dur = 400 + 500 * h32(j, 3), start = n > 1 ? (1600 - dur) * j / (n - 1) : 0, q = (local - start) / dur, ch = sp.g, op = 1, tf = '', fl = '';
+    if (q <= 0) op = 0;
+    else if (q < 1) {
+      if (!sp.blank && !sp.emo && q < .8) ch = SCR.charAt(Math.floor(h32(j, Math.floor(local / 70)) * SCR.length));
+      var e = q * q * (3 - 2 * q), inv = 1 - e;
+      op = Math.min(1, q * 5); tf = 'rotateY(' + (inv * 90 * (j % 2 ? 1 : -1)).toFixed(1) + 'deg)'; fl = 'blur(' + (inv * inv * 6).toFixed(1) + 'px)';
+    }
+    if (sp.shown !== ch) { sp.el.textContent = ch; sp.shown = ch; }
+    sp.el.style.opacity = op === 1 ? '' : String(op); sp.el.style.transform = tf; sp.el.style.filter = fl;
+  }
+}
+
+/* ------------------------------------------------------------ timeline glue (pure logic lives in card-timing.js) */
+/* cubesFadeMs covers the light sweep, which plays during the fade; the slide waits for it. */
+function tlOpts() {
+  var dec = S.mode2 === 'decode';
+  return { t: run.ms, lockedAt: run.lockedAt,
+    cubesFadeMs: S.sweep ? Math.round(K.sweepDur * 1000) + 50 : 400, slideMs: 1000, secondaryDelayMs: dec ? 0 : 150, secondaryMs: dec ? 1600 : 900, secondaryEarly: true, tight: S.tight && !!W.tlay, mode: S.mode2, hasSecondary: !!W.sec, reduced: reduced };
+}
+function updateTimeline() {
+  var tl = CT.timeline(tlOpts());
+  run.phase = tl.phase; run.slideT = tl.slideT; run.bevel = tl.bevel; run.secondaryT = tl.secondaryT;
+  document.body.dataset.phase = tl.phase;
+  if (tl.slideT > 0 && !run.tightFresh) { run.tightFresh = true; retight(); }   // final font is loaded by now; remeasure once
+  if (tl.slideT !== run.soT_) {
+    run.soT_ = tl.slideT;
+    W.so = (S.tight && W.tlay && tl.slideT > 0) ? CT.slideOffsets(W.tlay, tl.slideT, 'easeInOutCubic') : null;
+  }
+  run.crawlAt = CT.stamp(run.crawlAt, tl.phase, S.tight ? 'done' : 'locked', run.ms);
+  run.blurAt = CT.stamp(run.blurAt, tl.phase, 'sliding', run.ms);
+  renderSecondary(false);
+  if (tl.phase === 'done' && !run.doneSeen) { run.doneSeen = true; document.body.dataset.state = 'idle'; }
+}
+
+/* ------------------------------------------------------------ per-frame update */
+var tmpState = {};
+function updateCells(dt) {
+  var sim = W.sim, i, c, st, p, M, rate, tgt;
+  for (i = 0; i < W.n; i++) {
+    c = W.cells[i]; st = sim.cells[i]; p = sim.progress(i);
+    M = K.maxTilt * (1 - .72 * p);
+    var r = CT.stepCell(c, st, p, dt, K, { letters: S.letters });
+    c.u = r.u; c.shown = r.shown; c.pending = r.pending; c.blurPeak = r.blurPeak; c.blur = r.blur; c.act = r.act; c.settled = r.settled;
+    if (c.u < .04 && !c.pending) pickDir(c);
+    // letter tilt vector
+    var amp = M * c.u;
+    var lvx = c.dy * amp, lvy = c.dx * amp;     // rotX gets dy component, rotY gets dx component
+    c.lx = S.letters ? lvx : 0; c.ly = S.letters ? lvy : 0;
+    // cube rotation
+    var f = CT.stepFlip(c, st, run.t, rngFlip, S, lvx, lvy);
+    c.cx = f.cx; c.cy = f.cy; c.cax = f.cax; c.cay = f.cay; c.fl = f.fl; c.nextFlip = f.nextFlip;
+  }
+}
+
+var motTmp = { };
+function writeInstances() {
+  var cols = W.cols, rows = W.rows, n = 0, gx, gy, id, st, c, ls = null;
+  var sweepS = run.sweepT >= 0 ? run.sweepT : null;
+  if (W.lanes && S.lanes) ls = W.lanes.getLaneState();
+  function put(id, px, py, mx, my, laneGlass) {
+    c = W.cells[id];
+    var x = px - (cols - 1) / 2, y = -(py - (rows - 1) / 2);
+    var o3 = n * 3, o2 = n * 2, o4 = n * 4;
+    var gsc = 1, gdx = 0; if (W.so) { gdx = W.so.dx[id]; gsc = W.so.sc[id]; }
+    buf.pos[o3] = x + gdx; buf.pos[o3 + 1] = y; buf.pos[o3 + 2] = 0;
+    buf.cube[o2] = c.cx; buf.cube[o2 + 1] = c.cy;
+    buf.let_[o2] = c.lx; buf.let_[o2 + 1] = c.ly;
+    var sh = c.shown, uv = null;
+    if (sh && sh.glyph !== ' ') { uv = atlas.getUV(sh); if (!uv.ready) uv = null; }
+    if (uv) { buf.uv[o4] = uv.u0; buf.uv[o4 + 1] = uv.v0; buf.uv[o4 + 2] = uv.u1; buf.uv[o4 + 3] = uv.v1; }
+    else { buf.uv[o4] = buf.uv[o4 + 1] = buf.uv[o4 + 2] = buf.uv[o4 + 3] = 0; }
+    buf.gly[o4] = gsc; buf.gly[o4 + 1] = 0; buf.gly[o4 + 2] = uv && !uv.color ? baseShift(sh) : 0; buf.gly[o4 + 3] = uv && uv.color ? 1 : 0;
+    var shine = 0;
+    if (sweepS !== null && !W.so) { var z = (x * .9 - y * .5 - (sweepS * (cols + rows) * .9 - (cols + rows) * .35)) / 1.1; shine = Math.exp(-z * z) * .85; }
+    buf.fx[o4] = c.blur; buf.fx[o4 + 1] = Math.max(c.act, laneGlass); buf.fx[o4 + 2] = shine; buf.fx[o4 + 3] = c.seed * 10;
+    buf.mot[o2] = mx; buf.mot[o2 + 1] = my;
+    n++;
+  }
+  for (gy = 0; gy < rows; gy++) for (gx = 0; gx < cols; gx++) {
+    if (ls) {
+      st = W.lanes.getCellState(gx, gy, motTmp);
+      var px = gx + st.dx, py = gy + st.dy;
+      px = ((px + .5) % cols + cols) % cols - .5; py = ((py + .5) % rows + rows) % rows - .5;
+      var mx = ls.rows[gy].vel * .25, my = -ls.cols[gx].vel * .25, lg = Math.max(st.glass, 0);
+      put(st.id, px, py, mx, my, lg);
+      var wx = px < 0 ? px + cols : (px > cols - 1 ? px - cols : null), wy = py < 0 ? py + rows : (py > rows - 1 ? py - rows : null);
+      if (wx !== null) put(st.id, wx, py, mx, my, lg);
+      if (wy !== null) put(st.id, px, wy, mx, my, lg);
+      if (wx !== null && wy !== null) put(st.id, wx, wy, mx, my, lg);
+    } else put(gy * cols + gx, gx, gy, 0, 0, 0);
+  }
+  cubeMesh.geometry.instanceCount = n;
+  ['aPos', 'aCube', 'aLet', 'aUV', 'aFx', 'aMot', 'aGly'].forEach(function (k) { cubeMesh.geometry.attributes[k].needsUpdate = true; });
+}
+
+var bgAcc = 0, lastMult = -1, bgInfo = { mult: 1, px: 0 };
+/* bg time-scale and blur follow the timeline (pure fns in card-timing.js). reduced motion: final state at once. */
+function applyBgControls() {
+  var a = reduced ? -1e9 : run.crawlAt, b = reduced ? -1e9 : run.blurAt;
+  var m = CT.bgTimeScale({ speed: S.spd, crawlOn: S.crawl, crawlK: S.crawlK, rampMs: 2000, resolvedAtMs: a, nowMs: run.ms });
+  var px = CT.bgBlurPx({ blurOn: S.blur, blurPx: S.blurPx, rampMs: 2000, resolvedAtMs: b, nowMs: run.ms });
+  bgInfo.mult = m; bgInfo.px = px;
+  if (m !== lastMult && typeof bg.setSpeed === 'function') { lastMult = m; bg.setSpeed(m); }
+  shared.uBgLod.value = CT.blurLod(px, K.bgSize);
+}
+function drawFrame(dt, animate, skipRender) {
+  if (animate) {
+    run.t += dt; run.ms += dt * 1000;
+    bgAcc += dt;
+    applyBgControls();
+    if (bgAcc >= 1 / K.bgFps - 0.0005) { bg.update(run.t); bgTex.needsUpdate = true; bgAcc = 0; }
+    // glyph cascade ticks
+    if (run.state === 'resolving') {
+      var adv = CT.advanceTicks(run.tickAcc, dt * 1000, K.tickMs, CT.LOOP.maxTicksPerFrame); run.tickAcc = adv.acc;
+      for (var tk = 0; tk < adv.ticks && !W.sim.done; tk++) {
+        var ch = W.sim.step();
+        for (var k = 0; k < ch.length; k++) W.cells[ch[k]].pending = true;
+        // a cell whose shown state differs from a locked sim state must still get its final swap
+      }
+      for (var j = 0; j < W.n; j++) if (W.sim.cells[j].locked && W.cells[j].shown !== W.sim.cells[j]) W.cells[j].pending = true;
+    }
+    if (W.lanes && S.lanes) {
+      W.laneT += dt;
+      if (!W.laneSolved && W.laneT > K.lanesSolveAt) { W.lanes.solve(); W.laneSolved = true; }
+      CT.slices(dt, CT.LOOP.maxSlice).forEach(function (h) { W.lanes.update(h); });
+    }
+    CT.slices(dt, CT.LOOP.maxSlice).forEach(updateCells);
+    cubeU.uClip.value = (S.lanes && W.lanes && !W.lanes.isIdle()) ? 1 : 0;
+    if (run.sweepT >= 0) { run.sweepT += dt / K.sweepDur; if (run.sweepT > 1) { run.sweepT = -1; } }
+    if (run.state === 'resolving') {
+      var allSettled = W.sim.done && W.cells.every(function (c) { return c.settled && !c.pending; }) && (!W.lanes || !S.lanes || W.lanes.isIdle());
+      if (allSettled) {
+        run.state = 'idle'; run.lockedAt = run.settledAt = run.ms;   // 'locked' = every cell locked AND activity 0
+        setStatus('Message: ' + linesText());
+        if (S.sweep && !run.sweepDone) { run.sweepT = 0; }
+        run.sweepDone = true;
+      }
+    }
+  }
+  updateTimeline();
+  cubeU.uTime.value = run.t;
+  if (atlas.version !== atlasVersion) { atlasTex.needsUpdate = true; atlasVersion = atlas.version; }
+  if (skipRender) return;
+  writeInstances();
+  renderer.render(scene, camera);
+}
+
+var last = 0, raf = 0, staticQueued = false;
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  var dt = last ? Math.min(CT.LOOP.maxFrameDt, (now - last) / 1000) : 1 / 60; last = now;
+  var t0 = performance.now();
+  drawFrame(dt, true);
+  rawStats.ms.push(performance.now() - t0); if (rawStats.ms.length > 240) rawStats.ms.shift();
+  rawStats.gaps = rawStats.gaps || []; rawStats.gaps.push(dt * 1000); if (rawStats.gaps.length > 240) rawStats.gaps.shift();
+}
+function requestStatic() {
+  if (staticQueued) return; staticQueued = true;
+  requestAnimationFrame(function () { staticQueued = false; if (reduced) { applyBgControls(); bg.update(3); bgTex.needsUpdate = true; drawFrame(0, false); } });
+}
+
+/* ------------------------------------------------------------ controls */
+function setSwitch(btn, key, on) { S[key] = on; btn.setAttribute('aria-checked', on ? 'true' : 'false'); }
+['letters', 'cubes', 'lanes', 'sweep'].forEach(function (k) {
+  var b = $('t-' + k);
+  setSwitch(b, k, S[k]);
+  b.addEventListener('click', function () {
+    setSwitch(b, k, !S[k]);
+    if (k === 'lanes' && !S.lanes) W.lanes = null;
+    if (k === 'sweep' && S.sweep && !reduced) { run.sweepT = 0; }
+  });
+});
+var linkBtn = $('t-link');
+linkBtn.setAttribute('aria-pressed', S.link ? 'true' : 'false');
+linkBtn.addEventListener('click', function () { S.link = !S.link; linkBtn.setAttribute('aria-pressed', S.link ? 'true' : 'false'); });
+
+Array.prototype.forEach.call(document.querySelectorAll('input[name=bg]'), function (r) {
+  r.checked = r.value === S.bg;
+  r.addEventListener('change', function () { if (r.checked) { S.bg = r.value; bg.setVariant(S.bg); applyPal(PAL); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) { requestStatic(); } } });
+});
+/* ---- circuit controls (each degrades to disabled + note when the bg lacks the method) ---- */
+var ccMissing = [];
+function needs(method, ids) { if (typeof bg[method] === 'function') return true; ccMissing.push(method); ids.forEach(function (i) { $(i).disabled = true; }); return false; }
+function bgRefresh() { bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); }
+function sw(id, key, fn) { var b = $('t-' + id); b.addEventListener('click', function () { S[key] = !S[key]; b.setAttribute('aria-checked', S[key] ? 'true' : 'false'); if (fn) fn(); if (reduced) requestStatic(); }); }
+function rangeBind(id, key, fmt) { var el = $(id), o = $(id + '-o'); el.addEventListener('input', function () { var v = parseFloat(el.value); if (isFinite(v)) { S[key] = v; o.textContent = fmt(v); if (reduced) requestStatic(); } }); }
+rangeBind('spd', 'spd', function (v) { return v.toFixed(2) + 'x'; }); rangeBind('blurPx', 'blurPx', function (v) { return v.toFixed(1) + ' px'; });
+$('crawlK').addEventListener('change', function () { var v = parseFloat($('crawlK').value); S.crawlK = isFinite(v) ? Math.max(0.001, Math.min(1, v)) : 0.01; $('crawlK').value = S.crawlK; });
+sw('crawl', 'crawl'); sw('blur', 'blur'); sw('cpulse', 'cpulse');
+if (needs('setSpeed', ['spd', 't-crawl', 'crawlK'])) { /* applied per frame */ }
+if (needs('setRunes', ['t-runes'])) sw('runes', 'runes', function () { bg.setRunes(S.runes); bgRefresh(); });
+if (needs('setPulseVariance', ['t-pvar'])) sw('pvar', 'pvar', function () { bg.setPulseVariance(S.pvar); });
+var seedTimer = 0;
+function setCircuitSeed(n) { S.bgSeed = n; bg.setSeed(n); bgRefresh(); }
+if (needs('setSeed', ['cseed', 'reseed'])) {
+  $('cseed').addEventListener('input', function () { clearTimeout(seedTimer); seedTimer = setTimeout(function () { var n = CS.parseSeed($('cseed').value); if (n !== null) setCircuitSeed(n); }, 250); });
+  $('reseed').addEventListener('click', function () { clearTimeout(seedTimer); var n = seedFn() % 1000000; $('cseed').value = n; setCircuitSeed(n); });
+}
+if (ccMissing.length) { var nt = $('ccnote'); nt.hidden = false; nt.textContent = 'This circuit-bg.js lacks ' + ccMissing.join(', ') + '; the matching controls are disabled.'; }
+/* Replay applies any typed-but-unapplied message first (before, it replayed the old text, so new lines never showed). */
+$('replay').addEventListener('click', function () {
+  var v = $('msg').value;
+  if (v.trim() && (parsePrimary(v).text !== S.text || parseSecondary($('msg2').value).text !== S.text2 || $('mode2').value !== S.mode2)) applyMessages(); else replay();
+});
+function applyMessages() {
+  var v = $('msg').value; if (!v.trim()) return;
+  S.text = parsePrimary(v).text || S.text; S.text2 = parseSecondary($('msg2').value).text; S.mode2 = $('mode2').value;
+  if (S.text2 && S.mode2 === 'off') { S.mode2 = 'fade'; $('mode2').value = 'fade'; }   // typed a secondary message: show it (it stayed hidden while the effect was Off)
+  build(S.text); replay(); saveState();
+}
+$('ctrl').addEventListener('submit', function (e) { e.preventDefault(); applyMessages(); });
+['msg', 'msg2'].forEach(function (id) {   // Enter inserts a newline; Ctrl/Cmd+Enter applies
+  $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); applyMessages(); } });
+  $(id).addEventListener('input', updateCounters);
+});
+$('mode2').addEventListener('change', function () { S.mode2 = $('mode2').value; S.text2 = parseSecondary($('msg2').value).text; build(S.text); replay(); });
+var tightBtn = $('t-tight');
+tightBtn.addEventListener('click', function () { S.tight = !S.tight; tightBtn.setAttribute('aria-checked', S.tight ? 'true' : 'false'); build(S.text); replay(); });
+function updateCounters() {
+  var i1 = CS.sanitizeInfo($('msg').value, CS.MAX_LINES, CS.MAX_MSG), l1 = $('msg').value.split(/\r?\n/).filter(function (x) { return x.trim(); }).length;
+  $('msgcnt').textContent = 'lines ' + Math.min(l1, 99) + '/' + CS.MAX_LINES + '   characters ' + CS.graphemes(i1.text.replace(/\n/g, '')).length + '/' + CS.MAX_MSG;
+  var n1 = parsePrimary($('msg').value).notes; if (l1 > CS.MAX_LINES && n1.indexOf('Only') < 0) { /* parsePrimary already reports it */ }
+  var mn = $('msgnote'); mn.hidden = !n1.length; mn.textContent = n1.join(' ');
+  var i2 = CS.sanitizeInfo($('msg2').value, CS.MAX_LINES2, CS.MAX_MSG2), l2 = $('msg2').value.split(/\r?\n/).filter(function (x) { return x.trim(); }).length;
+  $('msg2cnt').textContent = 'lines ' + Math.min(l2, 99) + '/' + CS.MAX_LINES2 + '   characters ' + CS.graphemes(i2.text.replace(/\n/g, '')).length + '/' + CS.MAX_MSG2 + (i2.droppedLines ? '   extra lines dropped' : '') + (i2.truncated ? '   trimmed' : '');
+}
+function replay() { play(); }
+
+/* ------------------------------------------------------------ boot */
+$('msg').value = S.text; $('msg2').value = S.text2; $('mode2').value = S.mode2; tightBtn.setAttribute('aria-checked', S.tight ? 'true' : 'false'); updateCounters();
+var lastErr = '-', fpsEMA = 0;
+window.addEventListener('error', function (e) { lastErr = String(e.message || e).slice(0, 80); });
+window.addEventListener('unhandledrejection', function (e) { lastErr = String(e.reason).slice(0, 80); });
+function startDebug() { if (dbgTimer) return; $('debug').hidden = false; dbgTimer = setInterval(function () {
+  var g = rawStats.gaps || [], ga = g.reduce(function (x, y) { return x + y; }, 0) / (g.length || 1), sim = W.sim, mA = 0, mB = 0;
+  W.cells.forEach(function (c) { mA = Math.max(mA, c.act); mB = Math.max(mB, c.blur); });
+  var lk = sim ? sim.cells.filter(function (c) { return c.locked; }).length : 0;
+  $('debug').textContent = 'tick ' + (sim ? sim.tick : '-') + '/' + (sim ? sim.totalTicks() : '-') + '  locked ' + lk + '/' + W.n + '  act ' + mA.toFixed(2) + '  blur ' + mB.toFixed(2) +
+    '  caption "' + $('status').textContent + '"  state ' + run.state + '  lanes ' + (S.lanes ? (W.lanes && !W.lanes.isIdle() ? 'busy' : 'idle') : 'off') +
+    '  bgx ' + bgInfo.mult.toFixed(3) + '  bgblur ' + bgInfo.px.toFixed(2) + 'px  phase ' + run.phase + '  slideT ' + (run.slideT || 0).toFixed(2) + '  fps ' + (ga ? (1000 / ga).toFixed(1) : '-') + '  err ' + lastErr;
+}, 500); }
+var dbgTimer = 0;
+if (Q.get('debug')) startDebug();
+/* ---- share / hide controls / pointer (all additive) ---- */
+var palSel = $('pal'), clean = false;
+(function initPal() {
+  if (typeof bg.setPalette !== 'function' || BG_OK.indexOf('magitech') < 0) return;  // old circuit-bg.js: no palette picker
+  var names = (CB.palettes && (Array.isArray(CB.palettes) ? CB.palettes : Object.keys(CB.palettes))) || ['tron'];
+  names.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n; palSel.appendChild(o); });
+  palSel.value = PAL || names[0];
+  $('palwrap').hidden = false;
+  palSel.addEventListener('change', function () { applyPal(palSel.value); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
+})();
+if (BG_OK.indexOf('magitech') < 0) { var mg = $('bg-magitech'); if (mg) mg.parentNode.hidden = true; }
+function setClean(on) {
+  clean = !!on; document.body.classList.toggle('clean', clean);
+  document.body.classList.toggle('locked', LOCKED);
+  if (clean && !LOCKED) $('showctl').tabIndex = 0;
+  setTimeout(resize, 0);
+}
+function syncUI() {
+  $('msg').value = S.text; $('msg2').value = S.text2; $('mode2').value = S.mode2; tightBtn.setAttribute('aria-checked', S.tight ? 'true' : 'false'); updateCounters();
+  ['letters', 'cubes', 'lanes', 'sweep'].forEach(function (k) { $('t-' + k).setAttribute('aria-checked', S[k] ? 'true' : 'false'); });
+  linkBtn.setAttribute('aria-pressed', S.link ? 'true' : 'false');
+  ['crawl', 'blur', 'runes', 'cpulse', 'pvar'].forEach(function (k) { $('t-' + k).setAttribute('aria-checked', S[k] ? 'true' : 'false'); });
+  $('spd').value = S.spd; $('spd-o').textContent = S.spd.toFixed(2) + 'x'; $('blurPx').value = S.blurPx; $('blurPx-o').textContent = S.blurPx.toFixed(1) + ' px'; $('crawlK').value = S.crawlK; $('cseed').value = S.bgSeed;
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=bg]'), function (r) { r.checked = r.value === S.bg; });
+  if (palSel.options.length) palSel.value = PAL || palSel.options[0].value;
+}
+function pushBgToggles() { if (bg.setRunes) bg.setRunes(S.runes); if (bg.setPulseVariance) bg.setPulseVariance(S.pvar); }
+function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
+    spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed }; }
+function cfgKey() { return [S.text, S.text2, S.mode2, S.tight, SEED0].join('|'); }
+/* Save this viewer's settings (debounced; skipped on share links and locked pages). Message text is saved when applied, not while typing. */
+var saveT = 0;
+function saveState() {
+  if (LOCKED || HASH0.config) return;
+  clearTimeout(saveT);
+  saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, CS.encodeConfig(currentCfg())); } catch (e) {} }, 400);
+}
+['input', 'change', 'click'].forEach(function (ev) { document.addEventListener(ev, saveState); });
+var lastHashApplied = location.hash;
+function applyHash(h) {  // live: from hub postMessage or hashchange
+  if (h === lastHashApplied) return; lastHashApplied = h;
+  var P = CS.parseHash(h);
+  if (LOCKED) return;
+  setClean(P.clean); if (P.debug) startDebug();
+  var c = P.config; if (!c) return;
+  var before = cfgKey();
+  mergeCfg(c);
+  if (c.bg) { bg.setVariant(S.bg); } if (c.pal) applyPal(PAL);
+  if (c.lanes === false) W.lanes = null;
+  syncUI(); pushBgToggles(); if (c.cseed != null && typeof bg.setSeed === 'function') bg.setSeed(S.bgSeed);
+  bg.update(run.t); bgTex.needsUpdate = true;
+  if (before !== cfgKey()) { build(S.text); replay(); } else if (reduced) requestStatic();
+}
+$('replayfloat').addEventListener('click', function () { replay(); });   // stays visible when the controls are hidden (also on locked pages)
+$('hidectl').addEventListener('click', function () { setClean(true); $('showctl').focus(); });
+$('showctl').addEventListener('click', function () { if (!LOCKED) { setClean(false); $('hidectl').focus(); } });
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'c' || e.ctrlKey || e.metaKey || e.altKey || LOCKED) return;
+  var t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+  setClean(!clean);
+});
+/* JSON settings: the validated config as pretty JSON. It is the same shape window.CARD_CONFIG takes, so a new page can bake it in as presets. */
+function showJson() {
+  var cfg = CS.validate(currentCfg());
+  if ($('incclean').checked) cfg.hide = true;
+  var txt = JSON.stringify(cfg, null, 2), out = $('linkout');
+  out.textContent = txt; out.style.whiteSpace = 'pre-wrap'; out.hidden = false; $('linknote').hidden = false; $('linkwarn').hidden = true;
+  return txt;
+}
+$('copylink').addEventListener('click', function () {
+  var txt = showJson(), out = $('linkout');
+  var sel = function () { try { var r = document.createRange(); r.selectNodeContents(out); var g = getSelection(); g.removeAllRanges(); g.addRange(r); } catch (e) {} setStatus('Select and copy the JSON shown below.'); };
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { setStatus('JSON settings copied. Paste them to Claude.'); }, sel); else sel(); } catch (e) { sel(); }
+});
+window.addEventListener('hashchange', function () { applyHash(location.hash); });
+window.addEventListener('message', function (e) {
+  if (e.source !== window.parent || !e.data || e.data.type !== 'card-hash' || typeof e.data.hash !== 'string') return;
+  applyHash(e.data.hash);
+});
+try { if (window.parent !== window) window.parent.postMessage({ type: 'card-ready' }, '*'); } catch (e) {}
+setClean(HASH0.clean || !!BAKED.hide || LOCKED);
+if (HASH0.debug) startDebug();
+
+/* Pointer -> circuit background. No-op without hoverAt/pulseAt (old circuit-bg.js) and in reduced motion. */
+pushBgToggles(); syncUI();
+if (HAS_POINTER_API && !reduced) {
+  var lastMove = 0, hoverId = -1;
+  var toUV = function (e) { var r = canvas.getBoundingClientRect(); return CS.pointerToUV(e.clientX - r.left, e.clientY - r.top, r.width, r.height, shared.uCover.value ? { x: shared.uCover.value.x, y: shared.uCover.value.y } : null); };
+  canvas.addEventListener('pointermove', function (e) {
+    if (!S.cpulse) { if (hoverId >= 0) { hoverId = -1; canvas.style.cursor = ''; } return; }
+    var now = performance.now(); if (now - lastMove < 50) return; lastMove = now;
+    var uv = toUV(e); if (!uv) return;
+    var id = bg.hoverAt(uv.u, uv.v); if (id !== hoverId) { hoverId = id; canvas.style.cursor = id >= 0 ? 'pointer' : ''; }
+  });
+  canvas.addEventListener('pointerleave', function () { hoverId = -1; canvas.style.cursor = ''; });
+  canvas.addEventListener('pointerdown', function (e) { if (!S.cpulse) return; var uv = toUV(e); if (uv) bg.pulseAt(uv.u, uv.v); });
+}
+
+build(S.text);
+play();
+window.__card = {
+  S: S, K: K, W: W, run: run, atlas: atlas, bg: bg, stats: rawStats, renderer: renderer, uniforms: cubeU,
+  rows: function () { var out = []; for (var r = 0; r < W.rows; r++) { var s = ''; for (var c = 0; c < W.cols; c++) { var ce = W.cells[r * W.cols + c]; s += ce.shown ? ce.shown.glyph : '?'; } out.push(s); } return out; },
+  timeline: function () { return CT.timeline(tlOpts()); }, secondarySpans: function () { return secState.spans.map(function (x) { return x.shown; }).join(''); }, parsePrimary: parsePrimary,
+  replay: replay, build: build, step: function (dt, n) { for (var i = 0; i < n; i++) drawFrame(dt, true, i < n - 1); },
+  dispose: function () {
+    cancelAnimationFrame(raf); raf = 0;
+    if (cubeMesh) { scene.remove(cubeMesh); cubeMesh.geometry.dispose(); cubeMesh = null; }
+    bgMesh.geometry.dispose(); bgMesh.material.dispose(); cubeMat.dispose();
+    bgTex.dispose(); atlasTex.dispose();
+    if (bg.dispose) bg.dispose();
+    renderer.dispose();
+  },
+  freeze: function () { cancelAnimationFrame(raf); raf = 0; }, thaw: function () { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } }
+};
+if (reduced) { requestStatic(); setStatus('Message: ' + linesText()); document.body.dataset.state = 'idle'; }
+else raf = requestAnimationFrame(frame);
+atlas.warm(3000).then(function () { updateNotes(); });
+})();
+</script>
+</body>
+</html>
