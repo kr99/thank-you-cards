@@ -14,7 +14,7 @@ test('m2 limits only go up (was 120 chars / 2 lines) and stay within the URL bud
 test('a max-length m2 sanitizes untouched and still fits the share fragment budget', () => {
   const text2 = 'word '.repeat(CS.MAX_MSG2).slice(0, CS.MAX_MSG2).trim();
   assert.strictEqual(CS.sanitizeInfo(text2, CS.MAX_LINES2, CS.MAX_MSG2).truncated, false);
-  const r = CS.buildFragmentChecked({ text: 'THANK YOU', text2: text2 }, {});
+  const r = CS.buildFragmentChecked({ m: 'THANK YOU', m2: text2, s2: 'decode', bg: 'pcb', pal: 'tron' }, {});
   assert.strictEqual(r.tooLong, false);
 });
 

@@ -9,7 +9,7 @@
   var BGS = ['die', 'pcb', 'veins', 'magitech'];
   var S2 = ['off', 'fade', 'decode'], LAYS = ['grid', 'tight'];
   var MAX_TOKEN = 6000, MAX_HASH = 6200, MAX_JSON = 4500, MAX_FRAGMENT = 1800;
-  var MAX_MSG = 160, MAX_LINES = 3, MAX_MSG2 = 120, MAX_LINES2 = 2;
+  var MAX_MSG = 160, MAX_LINES = 3, MAX_MSG2 = 400, MAX_LINES2 = 8;
   var BOOLS = ['letters', 'cubes', 'linked', 'lanes', 'sweep', 'hide', 'crawl', 'blur', 'runes', 'cpulse', 'pvar'];
   /* seed = simulation (glyph cascade) seed; cseed = circuit layout seed. spd/crawlK/blurPx: clamped numbers, 3 decimals. */
   var NUMS = [{ k: 'spd', lo: 0.05, hi: 2 }, { k: 'crawlK', lo: 0.001, hi: 1 }, { k: 'blurPx', lo: 0, hi: 6 }];

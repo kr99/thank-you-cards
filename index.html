@@ -107,8 +107,8 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
 
     <div class="row">
       <div class="msg small">
-        <label class="lbl" for="msg2">Secondary message (up to 2 lines, optional)</label>
-        <textarea id="msg2" rows="2" maxlength="180" spellcheck="false" autocapitalize="off"></textarea>
+        <label class="lbl" for="msg2">Secondary message (long notes shrink to fit, optional)</label>
+        <textarea id="msg2" rows="2" maxlength="1200" spellcheck="false" autocapitalize="off"></textarea>
         <p class="cnt" id="msg2cnt" aria-live="polite"></p>
       </div>
       <div>
@@ -189,6 +189,7 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
 <script src="circuit-bg.js"></script>
 <script src="slide-lanes.js"></script>
 <script src="card-text.js"></script>
+<script src="card-fit.js"></script>
 <script src="card-timing.js"></script>
 <script src="card-share.js"></script>
 <script src="app.js"></script>
