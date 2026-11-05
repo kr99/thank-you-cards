@@ -163,10 +163,19 @@
   }
   function coverFor(w, h) { var a = w / h; return { x: a > 1 ? 1 : a, y: a > 1 ? 1 / a : 1 }; }
 
+  /* Pure: values JSON -> {url, tooLong}. Validates and encodes; opts {baseUrl, anchor, hide}. tooLong when url > 2000 chars. */
+  function buildShareUrl(values, opts) {
+    opts = opts || {};
+    var cfg = validate(values); if (opts.hide) cfg.hide = true;
+    var base = String(opts.baseUrl || '').split(/[?#]/)[0];
+    var url = base + (opts.anchor ? '#c=' : '?c=') + encodeConfig(cfg).slice(2);
+    return { url: url, tooLong: url.length > 2000 };
+  }
+
   /* every key validate() can emit; derived so it cannot drift from BOOLS/NUMS */
   var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS);
 
   return { KEYS: KEYS, BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2, MAX_FRAGMENT: MAX_FRAGMENT,
-    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
+    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, buildShareUrl: buildShareUrl, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
     parseHash: parseHash, buildHash: buildHash, pointerToUV: pointerToUV, coverFor: coverFor };
 });
