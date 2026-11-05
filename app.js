@@ -1,7 +1,8 @@
 (function () {
 'use strict';
 var CT = window.CardTiming, T2 = window.CardText, CF = window.CardFit;
-var G = window.GlyphEngine, CB = window.CircuitBG, SL = window.SlideLanes, PL = window.PlanLanes, T = window.THREE;
+var G = window.GlyphEngine, CB = window.CircuitBG, L3 = window.Lanes3, LF = window.LanesFrame, T = window.THREE;
+var LANES_D = 3, LANES_SPEED = .5;   // lanes window = [cascadeEnd - D, cascadeEnd]; phase scheduler will supply later
 var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
 var $ = function (id) { return document.getElementById(id); };
@@ -360,7 +361,8 @@ function finishStatic() {
 }
 
 function play() {
-  W.sim = G.createSim({ cols: W.cols, rows: W.rows, target: W.target, seed: (S.seed++) * 31 + 5, cfg: { blankDelay: 12 } });
+  var simSeed = (S.seed++) * 31 + 5, simOpts = { cols: W.cols, rows: W.rows, target: W.target, seed: simSeed, cfg: { blankDelay: 12 } };
+  W.sim = G.createSim(simOpts);
   run.tickAcc = 0; run.startT = run.t; run.sweepT = -1; run.sweepDone = false; run.state = 'resolving';
   run.ms = 0; run.lockedAt = null; run.settledAt = null; run.phase = 'resolving'; run.slideT = 0; run.bevel = 1; run.secondaryT = 0; run.doneSeen = false; run.crawlAt = null; run.blurAt = null; run.tightFresh = false; W.so = null; run.soT_ = -1; secState.key = '';
   W.laneSolved = false; W.laneT = 0;
@@ -370,9 +372,10 @@ function play() {
     c.fl = null; c.nextFlip = run.t + rngFlip() * .6; pickDir(c);
   });
   if (S.lanes) {
-    W.lanes = new SL({ cols: W.cols, rows: W.rows, seed: S.seed * 13 });
-    W.lanes.playHoles(PL.planLanes2(W.lanes.rng, W.rows, W.cols));
-    W.laneSolved = true;   // hole plan plays start -> rounds -> fill -> solved on its own; no legacy solve()
+    var ps = G.createSim(simOpts), ticks = 0;   // same-seed dry run = cascade length in ticks
+    while (!ps.done && ticks < 5000) { ps.step(); ticks++; }
+    W.lanes = L3.planLanes3(W.rows, W.cols, { seed: S.seed * 13, D: LANES_D, speed: LANES_SPEED });
+    W.laneStartMs = Math.max(0, ticks * K.tickMs - W.lanes.D * 1000);
   } else W.lanes = null;
   setStatus('Resolving…');
   document.body.dataset.state = 'resolving'; document.body.dataset.phase = 'resolving';
@@ -513,12 +516,13 @@ var motTmp = { };
 function writeInstances() {
   var cols = W.cols, rows = W.rows, n = 0, gx, gy, id, st, c, ls = null;
   var sweepS = run.sweepT >= 0 ? run.sweepT : null;
-  if (W.lanes && S.lanes) ls = W.lanes.getLaneState();
-  function put(id, px, py, mx, my, laneGlass) {
+  if (W.lanes && S.lanes && run.lockedAt === null) ls = LF.lanesFrame(W.lanes, run.ms, W.laneStartMs);
+  function put(id, px, py, mx, my, laneGlass, sc) {
     c = W.cells[id];
     var x = px - (cols - 1) / 2, y = -(py - (rows - 1) / 2);
     var o3 = n * 3, o2 = n * 2, o4 = n * 4;
     var gsc = 1, gdx = 0; if (W.so) { gdx = W.so.dx[id]; gsc = W.so.sc[id]; }
+    gsc *= sc;   // aGly.x scales the whole cube (vertex shader)
     buf.pos[o3] = x + gdx; buf.pos[o3 + 1] = y; buf.pos[o3 + 2] = 0;
     buf.cube[o2] = c.cx; buf.cube[o2 + 1] = c.cy;
     buf.let_[o2] = c.lx; buf.let_[o2 + 1] = c.ly;
@@ -533,20 +537,13 @@ function writeInstances() {
     buf.mot[o2] = mx; buf.mot[o2 + 1] = my;
     n++;
   }
-  for (gy = 0; gy < rows; gy++) for (gx = 0; gx < cols; gx++) {
-    if (ls) {
-      st = W.lanes.getCellState(gx, gy, motTmp);
-      if (st.id < 0) continue;   // hole: no cube drawn
-      var px = gx + st.dx, py = gy + st.dy;
-      px = ((px + .5) % cols + cols) % cols - .5; py = ((py + .5) % rows + rows) % rows - .5;
-      var mx = ls.rows[gy].vel * .25, my = -ls.cols[gx].vel * .25, lg = Math.max(st.glass, 0);
-      put(st.id, px, py, mx, my, lg);
-      var wx = px < 0 ? px + cols : (px > cols - 1 ? px - cols : null), wy = py < 0 ? py + rows : (py > rows - 1 ? py - rows : null);
-      if (wx !== null) put(st.id, wx, py, mx, my, lg);
-      if (wy !== null) put(st.id, px, wy, mx, my, lg);
-      if (wx !== null && wy !== null) put(st.id, wx, wy, mx, my, lg);
-    } else put(gy * cols + gx, gx, gy, 0, 0, 0);
-  }
+  if (ls) {
+    for (id = 0; id < ls.length; id++) {
+      st = ls[id];
+      if (st.s <= 0) continue;   // hole not yet filled
+      put(id, st.x, st.y, st.vx * .25, -st.vy * .25, 0, st.s);
+    }
+  } else for (gy = 0; gy < rows; gy++) for (gx = 0; gx < cols; gx++) put(gy * cols + gx, gx, gy, 0, 0, 0, 1);
   cubeMesh.geometry.instanceCount = n;
   ['aPos', 'aCube', 'aLet', 'aUV', 'aFx', 'aMot', 'aGly'].forEach(function (k) { cubeMesh.geometry.attributes[k].needsUpdate = true; });
 }
@@ -577,16 +574,10 @@ function drawFrame(dt, animate, skipRender) {
       }
       for (var j = 0; j < W.n; j++) if (W.sim.cells[j].locked && W.cells[j].shown !== W.sim.cells[j]) W.cells[j].pending = true;
     }
-    if (W.lanes && S.lanes) {
-      W.laneT += dt;
-      if (!W.laneSolved && W.laneT > K.lanesSolveAt) { W.lanes.solve(); W.laneSolved = true; }
-      CT.slices(dt, CT.LOOP.maxSlice).forEach(function (h) { W.lanes.update(h); });
-    }
     CT.slices(dt, CT.LOOP.maxSlice).forEach(updateCells);
-    cubeU.uClip.value = (S.lanes && W.lanes && !W.lanes.isIdle()) ? 1 : 0;
     if (run.sweepT >= 0) { run.sweepT += dt / K.sweepDur; if (run.sweepT > 1) { run.sweepT = -1; } }
     if (run.state === 'resolving') {
-      var allSettled = W.sim.done && W.cells.every(function (c) { return c.settled && !c.pending; }) && (!W.lanes || !S.lanes || W.lanes.isIdle());
+      var allSettled = W.sim.done && W.cells.every(function (c) { return c.settled && !c.pending; });
       if (allSettled) {
         run.state = 'idle'; run.lockedAt = run.settledAt = run.ms;   // 'locked' = every cell locked AND activity 0
         setStatus('Message: ' + linesText());
@@ -694,7 +685,7 @@ function startDebug() { if (dbgTimer) return; $('debug').hidden = false; dbgTime
   W.cells.forEach(function (c) { mA = Math.max(mA, c.act); mB = Math.max(mB, c.blur); });
   var lk = sim ? sim.cells.filter(function (c) { return c.locked; }).length : 0;
   $('debug').textContent = 'tick ' + (sim ? sim.tick : '-') + '/' + (sim ? sim.totalTicks() : '-') + '  locked ' + lk + '/' + W.n + '  act ' + mA.toFixed(2) + '  blur ' + mB.toFixed(2) +
-    '  caption "' + $('status').textContent + '"  state ' + run.state + '  lanes ' + (S.lanes ? (W.lanes && !W.lanes.isIdle() ? 'busy' : 'idle') : 'off') +
+    '  caption "' + $('status').textContent + '"  state ' + run.state + '  lanes ' + (S.lanes ? (W.lanes && run.state === 'resolving' ? 'busy' : 'idle') : 'off') +
     '  bgx ' + bgInfo.mult.toFixed(3) + '  bgblur ' + bgInfo.px.toFixed(2) + 'px  phase ' + run.phase + '  slideT ' + (run.slideT || 0).toFixed(2) + '  fps ' + (ga ? (1000 / ga).toFixed(1) : '-') + '  err ' + lastErr;
 }, 500); }
 var dbgTimer = 0;
