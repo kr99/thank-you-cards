@@ -721,13 +721,18 @@ function syncUI() {
 function pushBgToggles() { if (bg.setRunes) bg.setRunes(S.runes); if (bg.setPulseVariance) bg.setPulseVariance(S.pvar); }
 function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
     spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed }; }
+/* CURRENT form values as JSON, regardless of Replay: message/second line/mode read the DOM live, the rest is applied state. */
+function currentValuesJson() {
+  var base = currentCfg(), live = { m: $('msg').value, m2: $('msg2').value || undefined, s2: $('mode2').value };
+  return CardValues.toValues({ get: function (k) { return k in live ? live[k] : base[k]; } });
+}
 function cfgKey() { return [S.text, S.text2, S.mode2, S.tight, SEED0].join('|'); }
 /* Save this viewer's settings (debounced; skipped on share links and locked pages). Message text is saved when applied, not while typing. */
 var saveT = 0;
 function saveState() {
   if (LOCKED || SHARED) return;
   clearTimeout(saveT);
-  saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, CS.encodeConfig(currentCfg())); } catch (e) {} }, 400);
+  saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, CS.encodeConfig(currentValuesJson())); } catch (e) {} }, 400);
 }
 ['input', 'change', 'click'].forEach(function (ev) { document.addEventListener(ev, saveState); });
 var lastHashApplied = location.hash;
@@ -768,10 +773,9 @@ $('copylink').addEventListener('click', function () {
 });
 /* Share link: this page's URL with ?c=<base64url JSON>. Anyone opening it sees these settings; encoding is not encryption. */
 $('copyqlink').addEventListener('click', function () {
-  var cfg = CS.validate(currentCfg()); if ($('incclean').checked) cfg.hide = true;
-  var tok = CS.encodeConfig(cfg).slice(2), url = location.href.split(/[?#]/)[0] + ($('qanchor').checked ? '#c=' : '?c=') + tok, out = $('linkout');
+  var res = CS.buildShareUrl(currentValuesJson(), { baseUrl: location.href, anchor: $('qanchor').checked, hide: $('incclean').checked }), url = res.url, out = $('linkout');
   out.textContent = url; out.style.whiteSpace = 'normal'; out.hidden = false; $('linknote').hidden = true;
-  $('linkwarn').hidden = url.length <= 2000; if (url.length > 2000) $('linkwarn').textContent = 'Long link (' + url.length + ' characters); some apps may cut it.';
+  $('linkwarn').hidden = !res.tooLong; if (res.tooLong) $('linkwarn').textContent = 'Long link (' + url.length + ' characters); some apps may cut it.';
   var sel = function () { try { var r = document.createRange(); r.selectNodeContents(out); var g = getSelection(); g.removeAllRanges(); g.addRange(r); } catch (e) {} setStatus('Select and copy the link shown below.'); };
   try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { setStatus('Share link copied.'); }, sel); else sel(); } catch (e) { sel(); }
 });
