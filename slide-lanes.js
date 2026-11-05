@@ -69,6 +69,7 @@
     timeScale: 1,         // global speed multiplier
     speedRef: 7,          // cells/s that maps to speed = 1
     correctionTau: 0.16,  // s, decay of commit-continuity corrections
+    fillDur: 0.6, fillStagger: 0.05,  // hole mode: rise-in of absent cubes at the end
     glassAttack: 0.07, glassRelease: 0.28,
     commitGap: 0.03,      // s, perpendicular moves finish at least this much after predecessors
     curves: null          // {name: weight}; null = DEFAULT_CURVES
@@ -90,6 +91,7 @@
     this.handlers = {};
     var n = this.cols * this.rows, r, c;
     this.grid = new Int32Array(n); this.corrX = new Float32Array(n); this.corrY = new Float32Array(n);
+    this.runX = new Float32Array(n); this.runY = new Float32Array(n); this.fillF = new Float32Array(n);
     for (r = 0; r < this.rows; r++) for (c = 0; c < this.cols; c++) this.grid[r * this.cols + c] = r * this.cols + c;
     this.rowL = []; this.colL = [];
     for (r = 0; r < this.rows; r++) this.rowL.push({ off: 0, vel: 0, speed: 0, glass: 0, env: 0, move: null });
@@ -277,6 +279,7 @@
   P._step = function (dt) {
     var cfg = this.cfg, i, a, m, L, h = 1e-3;
     this.time += dt;
+    if (this.mode === 'holes') { this._stepHoles(dt); return; }
     this._tryStart();
     // advance offsets
     for (a = 0; a < this.active.length; a++) {
@@ -330,6 +333,85 @@
     if (this.mode !== 'idle' && !this.queue.length && !this.active.length) this._finishMode();
   };
 
+  // ------------------------------------------------------------ hole mode (planLanes2 playback)
+  // Playback: start grid (holes = -1) -> rounds of run slides -> fill holes -> exact solved grid.
+  // Rounds run one after another; ops inside a round touch disjoint lanes and run simultaneously.
+  P.playHoles = function (plan, opts) {
+    if (this.mode === 'solving' || this.mode === 'holes') return false;
+    var n = this.grid.length, i;
+    for (i = 0; i < n; i++) { this.grid[i] = plan.start[i]; this.corrX[i] = 0; this.corrY[i] = 0; this.runX[i] = 0; this.runY[i] = 0; this.fillF[i] = 1; }
+    this.queue.length = 0; this.active.length = 0; this.log = [];
+    this.holeRounds = plan.rounds.slice(); this.runs = [];
+    this.holeSolved = plan.solved; this.holeCells = plan.holeCells.slice();
+    this.holeOpts = opts || {};
+    this.holePhase = 'rounds'; this.roundEnd = this.time;
+    this.mode = 'holes';
+    return true;
+  };
+  P._startRound = function (rd) {
+    var rng = this.rng, cfg = this.cfg, self = this;
+    rd.lanes.forEach(function (ln) {
+      var t = self.time + rng() * cfg.delayMax;
+      ln.ops.forEach(function (op) {
+        var dur = (cfg.minDur + (cfg.maxDur - cfg.minDur) * rng()) * (0.7 + 0.3 * op.len);
+        self.runs.push({ axis: rd.axis, i: ln.i, a: op.a, len: op.len, d: op.d, t0: t, end: t + dur });
+        t += dur + cfg.commitGap;
+      });
+    });
+  };
+  P._cellIdx = function (axis, i, x) { return axis === 'row' ? i * this.cols + x : x * this.cols + i; };
+  /* Move the run one cell into the adjacent hole. No wrap; caller (planner) guarantees legality. */
+  P._commitRun = function (r) {
+    var idx, x, vals = [];
+    for (x = r.a; x < r.a + r.len; x++) vals.push(this.grid[this._cellIdx(r.axis, r.i, x)]);
+    for (x = r.a; x < r.a + r.len; x++) this.grid[this._cellIdx(r.axis, r.i, x)] = -1;
+    vals.forEach(function (v, k) { this.grid[this._cellIdx(r.axis, r.i, r.a + k + r.d)] = v; }, this);
+    var lo = Math.min(r.a, r.a + r.d), hi = Math.max(r.a + r.len - 1, r.a + r.len - 1 + r.d);
+    for (x = lo; x <= hi; x++) { idx = this._cellIdx(r.axis, r.i, x); this.runX[idx] = 0; this.runY[idx] = 0; }
+  };
+  P._stepHoles = function (dt) {
+    var i, r, u, idx, off, x;
+    if (this.holePhase === 'rounds') {
+      if (!this.runs.length && this.holeRounds.length) this._startRound(this.holeRounds.shift());
+      for (i = this.runs.length - 1; i >= 0; i--) {
+        r = this.runs[i];
+        u = Math.min(1, Math.max(0, (this.time - r.t0) / (r.end - r.t0)));
+        off = r.d * Easings.inOutCubic(u);
+        for (x = r.a; x < r.a + r.len; x++) {
+          idx = this._cellIdx(r.axis, r.i, x);
+          if (r.axis === 'row') this.runX[idx] = off; else this.runY[idx] = off;
+        }
+        if (this.time >= r.end) {
+          this._commitRun(r);
+          this.runs.splice(i, 1);
+        }
+      }
+      if (!this.runs.length && !this.holeRounds.length) this._beginFill();
+    } else {
+      this._stepFill(dt);
+    }
+  };
+  P._beginFill = function () {
+    var self = this;
+    this.holePhase = 'fill';
+    this.fillT0 = this.time;
+    this.holeCells.forEach(function (c) { self.grid[c] = self.holeSolved[c]; self.fillF[c] = 0; });
+  };
+  P._stepFill = function () {
+    var self = this, dur = this.cfg.fillDur, done = true;
+    this.holeCells.forEach(function (c, k) {
+      var u = (self.time - self.fillT0 - k * self.cfg.fillStagger) / dur;
+      u = Math.min(1, Math.max(0, u));
+      self.fillF[c] = Easings.outCubic(u);
+      if (u < 1) done = false;
+    });
+    if (!done) return;
+    this.holeCells.forEach(function (c) { self.fillF[c] = 1; });
+    this.mode = 'idle'; this.holePhase = null;
+    this._emit('solved', this.verify());
+    this._emit('idle', 'holes');
+  };
+
   // ------------------------------------------------------------ state getters
   /**
    * Cell shown at grid slot (col,row). Render at (col+dx, row+dy), wrapped mod cols/rows
@@ -339,8 +421,9 @@
     var i = row * this.cols + col, R = this.rowL[row], C = this.colL[col];
     out = out || {};
     out.id = this.grid[i];
-    out.dx = R.off + this.corrX[i];
-    out.dy = C.off + this.corrY[i];
+    out.dx = R.off + this.corrX[i] + this.runX[i];
+    out.dy = C.off + this.corrY[i] + this.runY[i] + (1 - this.fillF[i]) * 0.6;   // hole fill: rises from below
+    out.rise = 1 - this.fillF[i];
     out.rowSpeed = R.speed; out.colSpeed = C.speed;
     out.rowGlass = R.glass; out.colGlass = C.glass;
     out.laneSpeed = Math.max(R.speed, C.speed);
@@ -363,7 +446,7 @@
   };
 
   P.isIdle = function () {
-    if (this.queue.length || this.active.length) return false;
+    if (this.mode === 'holes' || this.queue.length || this.active.length) return false;
     var n = this.grid.length, i, L;
     for (i = 0; i < n; i++) if (this.corrX[i] !== 0 || this.corrY[i] !== 0) return false;
     for (i = 0; i < this.rows; i++) { L = this.rowL[i]; if (L.env !== 0 || L.speed !== 0 || L.glass !== 0) return false; }
@@ -404,6 +487,7 @@
     var n = this.grid.length, seen = new Uint8Array(n), i;
     for (i = 0; i < n; i++) {
       var v = this.grid[i];
+      if (v === -1) continue;                    // hole (absent cube during hole mode)
       if (v < 0 || v >= n || seen[v]) return { ok: false, reason: 'grid is not a permutation' };
       seen[v] = 1;
     }

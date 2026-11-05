@@ -370,8 +370,9 @@ function play() {
     c.fl = null; c.nextFlip = run.t + rngFlip() * .6; pickDir(c);
   });
   if (S.lanes) {
-    W.lanes = new SL({ cols: W.cols, rows: W.rows, seed: S.seed * 13, cfg: { maxConcurrent: 5, maxDist: 2 } });
-    W.lanes.scramblePlan(PL.planLanes(W.lanes.rng, W.rows, W.cols, { rounds: 6, maxShift: 5 }));
+    W.lanes = new SL({ cols: W.cols, rows: W.rows, seed: S.seed * 13 });
+    W.lanes.playHoles(PL.planLanes2(W.lanes.rng, W.rows, W.cols));
+    W.laneSolved = true;   // hole plan plays start -> rounds -> fill -> solved on its own; no legacy solve()
   } else W.lanes = null;
   setStatus('Resolving…');
   document.body.dataset.state = 'resolving'; document.body.dataset.phase = 'resolving';
@@ -535,6 +536,7 @@ function writeInstances() {
   for (gy = 0; gy < rows; gy++) for (gx = 0; gx < cols; gx++) {
     if (ls) {
       st = W.lanes.getCellState(gx, gy, motTmp);
+      if (st.id < 0) continue;   // hole: no cube drawn
       var px = gx + st.dx, py = gy + st.dy;
       px = ((px + .5) % cols + cols) % cols - .5; py = ((py + .5) % rows + rows) % rows - .5;
       var mx = ls.rows[gy].vel * .25, my = -ls.cols[gx].vel * .25, lg = Math.max(st.glass, 0);
