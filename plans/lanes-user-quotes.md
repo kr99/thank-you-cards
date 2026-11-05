@@ -8,3 +8,6 @@
 
 ## Quote 3 (later reply, about holes at the end of the lanes animation)
 "holes should fill in at the end.  Text blanks (spaces) in the message are cubes."
+
+## Quote 4 (latest; redirects the algorithm)
+"the gaps should be random, and part of the overall slide of a row or column.  rows and columns slide off-sides, so imagine a row that slides the entire row off, replacing it. or may slide overall right by 1.  The gaps would close or open AS it slides, which affects individual cube movement, but the overall row movement is also determined, so the cubes within each row will move from source to target position.   so ABC1DE2F3G --> move right by 5 (+3), the gaps 1 2 3 all disappear, we expect 3 cubes to roll off (slide size), leaving only A, B, C, D still there, while new items slide in.  Let's say the new gapping (randomized is _1___2____), then we have Z Y X and W sliding in, leaving gaps where anticipated.  Now the letters don't represent the gaps to exist, they represent "a cube with shifting letters".  we do not care about the location of actual letters - let's de-complicate by dropping that and forcing letters to "reveal" only when the cubes stop moving, so we don't have to track or plan or solve that.   The final shift should close all gaps, leaving no empty spaces."
