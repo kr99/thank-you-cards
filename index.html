@@ -100,13 +100,13 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
       </div>
       <div class="feat">
         <button type="button" class="sw" id="t-tight" role="switch" aria-checked="true"><span class="dot"></span>Tight spacing</button>
-        <button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
+        <span class="pair"><button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
         <button type="button" class="chain" id="t-link" aria-pressed="true" aria-label="Link letter and cube rotation" title="Link letter and cube rotation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <g class="whole"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></g>
             <g class="broken"><path d="M9.5 14.5l-1 1a4.5 4.5 0 0 1-6.4-6.4l3-3a4.5 4.5 0 0 1 6.4 0"/><path d="M14.5 9.5l1-1a4.5 4.5 0 0 1 6.4 6.4l-3 3a4.5 4.5 0 0 1-6.4 0"/><path d="M12 3v2M12 19v2M3 12h0" opacity="0"/><path d="M8 4l1.2 2.2M16 20l-1.2-2.2"/></g>
           </svg>
-        </button>
+        </button></span>
         <button type="button" class="sw" id="t-cubes" role="switch" aria-checked="false"><span class="dot"></span>Cubes rotate</button>
       </div>
       <p class="note">The chain only matters when letters and cubes both rotate: linked, they turn together; unlinked, they turn independently in opposite directions.</p>

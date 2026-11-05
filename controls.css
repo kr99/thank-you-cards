@@ -9,7 +9,7 @@
 body.clean #controls { display: none; }
 
 /* ---- groups: one fieldset per data-group; reorder / re-flow here only ---- */
-#ctrl fieldset[data-group] { display: grid; gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; }
+#ctrl fieldset[data-group] { display: grid; gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; align-content: start; }
 #ctrl fieldset[data-group] + fieldset[data-group] { border-top: 1px solid var(--line); padding-top: 14px; }
 @media (min-width: 900px) {
   #ctrl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 22px; }
@@ -55,6 +55,7 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
 .chain svg { width: 22px; height: 22px; }
 .chain .broken { display: none; } .chain[aria-pressed="false"] .whole { display: none; } .chain[aria-pressed="false"] .broken { display: inline; }
 .feat { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.feat > .pair { display: inline-flex; gap: 8px; align-items: center; flex-wrap: nowrap; }   /* Letters rotate + its chain never split across rows */
 
 /* ---- motion group: auto-fit grid of cells ---- */
 .cc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; align-items: end; }
@@ -67,7 +68,13 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
 #debug { font: 12px ui-monospace, monospace; color: var(--muted); margin: 0; }
 .chain-note { margin-top: 0; }
 
-@media (max-width: 480px) { .row > button { flex: 1 1 auto; } .feat > .sw { flex: 1 1 auto; } }
+@media (max-width: 480px) {
+  .row > button { flex: 1 1 auto; }
+  .feat > .sw { flex: 0 1 auto; }   /* no stretching: keeps the chain beside Letters rotate */
+  #ctrl fieldset[data-group="share"] .row { display: grid; grid-template-columns: 1fr 1fr; }
+  #ctrl fieldset[data-group="share"] .row > .chk { grid-column: 1 / -1; min-height: 32px; }
+  #ctrl fieldset[data-group="share"] #copyqlink { grid-column: 1 / -1; }
+}
 @media (prefers-reduced-motion: reduce) { .sw .dot::after { transition: none; } }
 
 /* floating clean-mode bar buttons (outside #controls) share the control button look */
