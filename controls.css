@@ -79,3 +79,27 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
 
 /* floating clean-mode bar buttons (outside #controls) share the control button look */
 #cleanbar button { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+
+/* ---- motion picklist (motion-picklist.js): every class prefixed .mp- ---- */
+.mp-root { display: grid; gap: 8px; min-width: 0; }
+.mp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mp-row { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: #0b1017; }
+.mp-idx { font: 12px ui-monospace, monospace; color: var(--muted); min-width: 1.6em; text-align: right; }
+.mp-ctrls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1 1 180px; min-width: 0; }
+.mp-name { font: 600 13px var(--body); color: var(--fg); }
+.mp-plabel, .mp-unit { font: 11px ui-monospace, monospace; color: var(--muted); }
+.mp-num { width: 5.5em; min-height: 40px; }
+.mp-moves { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.mp-btn { min-height: 40px; min-width: 40px; }
+.mp-addrow, .mp-iorow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.mp-addrow select { flex: 1 1 180px; min-height: 40px; }
+.mp-iorow textarea { flex: 1 1 240px; min-width: 0; font: 13px ui-monospace, monospace; }
+.mp-hint { margin: 0; font-size: 12.5px; color: #ffcf8a; }
+.mp-err { margin: 0; font-size: 12.5px; color: #ff9a9a; }
+.mp-err[hidden], .mp-hint[hidden] { display: none; }
+@media (max-width: 480px) {
+  .mp-row { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .mp-moves { grid-column: 1 / -1; }
+  .mp-moves .mp-btn { flex: 1 1 0; }
+  .mp-num { width: 100%; max-width: 6.5em; }
+}
