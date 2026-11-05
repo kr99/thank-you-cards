@@ -1,0 +1,10 @@
+# User quotes on sliding lanes (spelling fixed only; wording otherwise verbatim)
+
+## Quote 1
+"The sliding lanes feature should pre-determine a series of cool looking, simultaneous slides, alternating with alternating shifting rows vs columns (multiple at a time, but all rows or all columns), so eg round 1 might slide rows 1,2,3,5,8,9,10... each by +5,-3,+8,-4,... (randomized), and it should probably slide fewer rows or columns each time, but slide 50-80% of (row|column) count at a time at first, dropping the range to 30-50% at the end. IDK what would look best."
+
+## Quote 2
+"Also, the sliding lanes don't really accurately resolve the letters. Honestly, do we even need to track "correct placement" of letters? We can just "invent" the last couple steps in. Since there is randomization anyway. We might show some letters sliding into place, but mostly I imagine you would take the letters, calculate maybe 2 "spins" back, and only some of them have to even "show" at that point. I see cubes slide under other cubes or letters honestly slide way over several others, which does not make sense for a sliding lanes animation. I want to bring back empty spots on sliding lanes, and the possibility of a lane having a couple shifts at once, with before/after spacing somewhat randomized. So you might have "xx xxxx x xxx" where x represents the presence of a cube and " " the absence at start, and then have "xxx xxxxxxx x" at end, or something. Not literally represented like that, but I want the rows and columns movement to actually seem semi sensible--avoid much of collisions. If a die is going to jump across somewhere it would have to come "up" (closer) and then roll to its new position, without apparent cause. And that just seems unlikely to me, and like it would require some real complexity. Either one alone would maybe pass, but the two together (unrealistic + expensive to do) make me think "nah"."
+
+## Quote 3 (later reply, about holes at the end of the lanes animation)
+"holes should fill in at the end.  Text blanks (spaces) in the message are cubes."
