@@ -1,0 +1,74 @@
+/* controls.css -- ALL layout and styling for the controls panel (#controls).
+   Markup contract: <section id="controls"> > <form id="ctrl"> > <fieldset data-group="message|look|motion|share">.
+   app.js finds every control by id only, so re-laying-out the panel is a CSS/markup-only change.
+   Tokens (--panel, --line, --fg, --muted, --accent, --display, --body) come from :root in index.html. */
+
+/* ---- panel shell ---- */
+#controls { display: block; }
+#ctrl { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+body.clean #controls { display: none; }
+
+/* ---- groups: one fieldset per data-group; reorder / re-flow here only ---- */
+#ctrl fieldset[data-group] { display: grid; gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; }
+#ctrl fieldset[data-group] + fieldset[data-group] { border-top: 1px solid var(--line); padding-top: 14px; }
+@media (min-width: 900px) {
+  #ctrl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 22px; }
+  #ctrl fieldset[data-group] + fieldset[data-group] { border-top: 0; padding-top: 0; }
+  #ctrl fieldset[data-group="message"], #ctrl fieldset[data-group="share"] { grid-column: 1 / -1; }
+  #ctrl fieldset[data-group="share"] { border-top: 1px solid var(--line); padding-top: 14px; }
+}
+
+legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 6px; display: block; }
+#ctrl legend { margin-bottom: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+
+/* ---- form elements ---- */
+#ctrl button, #ctrl input[type=text], #ctrl input[type=number], #ctrl textarea, #ctrl select { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; min-height: 40px; padding: 8px 12px; }
+#ctrl button { cursor: pointer; }
+#ctrl button:hover { border-color: #3a4d66; }
+#ctrl button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+#ctrl input[type=range] { width: 100%; min-height: 40px; accent-color: var(--accent); }
+#ctrl button:focus-visible, #ctrl input:focus-visible, #ctrl textarea:focus-visible, #ctrl select:focus-visible, .seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+#ctrl button svg.die { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+.msg { flex: 1 1 220px; display: grid; min-width: 0; }
+#ctrl textarea { width: 100%; resize: vertical; line-height: 1.35; font-family: var(--body); }
+.msg.small textarea { font-size: 13px; min-height: 0; }
+.cnt { font: 12px ui-monospace, monospace; color: var(--muted); margin: 4px 0 0; }
+.warn { color: #ffcf8a; font-size: 12.5px; margin: 4px 0 0; }
+.chk { display: inline-flex; gap: 8px; align-items: center; min-height: 40px; font-size: 13px; color: var(--muted); }
+.note { color: var(--muted); font-size: 12.5px; margin: 0; }
+
+/* ---- segmented radios, switches, chain toggle ---- */
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; min-height: 40px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 5px; background: #131b27; }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.sw { display: inline-flex; align-items: center; gap: 8px; }
+.sw[aria-checked="true"], .chain[aria-pressed="true"] { border-color: var(--accent); }
+.sw .dot { width: 26px; height: 14px; border-radius: 8px; background: #2a3646; position: relative; flex: none; }
+.sw .dot::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #9aa8ba; transition: transform .15s; }
+.sw[aria-checked="true"] .dot { background: var(--accent); }
+.sw[aria-checked="true"] .dot::after { transform: translateX(12px); background: var(--accent-ink); }
+.chain { width: 44px; padding: 0; display: inline-grid; place-items: center; color: var(--muted); }
+.chain[aria-pressed="true"] { color: var(--accent); }
+.chain svg { width: 22px; height: 22px; }
+.chain .broken { display: none; } .chain[aria-pressed="false"] .whole { display: none; } .chain[aria-pressed="false"] .broken { display: inline; }
+.feat { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---- motion group: auto-fit grid of cells ---- */
+.cc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; align-items: end; }
+.cc > div { display: grid; gap: 4px; min-width: 0; } .cc output { font: 12px ui-monospace, monospace; color: var(--muted); }
+.cc input[type=number], .cc input[type=text] { width: 100%; } .cc :disabled { opacity: .5; cursor: not-allowed; }
+#cseed { flex: 1 1 90px; min-width: 0; }
+
+/* ---- share group ---- */
+#linkout { font: 12px ui-monospace, monospace; color: var(--fg); word-break: break-all; user-select: all; margin: 0; padding: 8px; background: #0b1017; border: 1px solid var(--line); border-radius: 5px; }
+#debug { font: 12px ui-monospace, monospace; color: var(--muted); margin: 0; }
+.chain-note { margin-top: 0; }
+
+@media (max-width: 480px) { .row > button { flex: 1 1 auto; } .feat > .sw { flex: 1 1 auto; } }
+@media (prefers-reduced-motion: reduce) { .sw .dot::after { transition: none; } }
+
+/* floating clean-mode bar buttons (outside #controls) share the control button look */
+#cleanbar button { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }

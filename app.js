@@ -709,7 +709,7 @@ var palSel = $('pal'), clean = false;
   $('palwrap').hidden = false;
   palSel.addEventListener('change', function () { applyPal(palSel.value); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
 })();
-if (BG_OK.indexOf('magitech') < 0) { var mg = $('bg-magitech'); if (mg) mg.parentNode.hidden = true; }
+if (BG_OK.indexOf('magitech') < 0) { var mg = $('bgopt-magitech'); if (mg) mg.hidden = true; }
 function setClean(on) {
   clean = !!on; document.body.classList.toggle('clean', clean);
   document.body.classList.toggle('locked', LOCKED);

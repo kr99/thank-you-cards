@@ -12,6 +12,7 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="controls.css">
 <style>
 :root {
   --bg: #070a10; --panel: #0e131c; --line: #243040; --fg: #e8eef6; --muted: #93a1b4;
@@ -30,60 +31,20 @@ h1 { font: 600 13px var(--display); letter-spacing: .14em; text-transform: upper
 #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .18s linear; }
 #stage.fading canvas { opacity: 0; }
 #status { margin: 0; text-align: center; color: var(--muted); font-size: 13px; min-height: 1.5em; }
-.ctrl { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
-.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
-legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 6px; display: block; }
-button, input[type=text], input[type=number], textarea, select { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; min-height: 40px; padding: 8px 12px; }
-button { cursor: pointer; }
-button:hover { border-color: #3a4d66; }
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-input[type=range] { width: 100%; min-height: 40px; accent-color: var(--accent); }
-.cc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; align-items: end; }
-.cc > div { display: grid; gap: 4px; min-width: 0; } .cc output { font: 12px ui-monospace, monospace; color: var(--muted); }
-.cc input[type=number], .cc input[type=text] { width: 100%; } .cc :disabled { opacity: .5; cursor: not-allowed; }
-button svg.die { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
-button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, .seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
-.msg { flex: 1 1 220px; display: grid; min-width: 0; }
-textarea { width: 100%; resize: vertical; line-height: 1.35; font-family: var(--body); }
-.msg.small textarea { font-size: 13px; min-height: 0; }
-.cnt { font: 12px ui-monospace, monospace; color: var(--muted); margin: 4px 0 0; }
-.warn { color: #ffcf8a; font-size: 12.5px; margin: 4px 0 0; }
-.chk { display: inline-flex; gap: 8px; align-items: center; min-height: 40px; font-size: 13px; color: var(--muted); }
 #sec { position: absolute; left: 0; right: 0; bottom: 0; perspective: 700px; pointer-events: none; color: #e8eef6; font: 500 14px var(--body); overflow: hidden; }
 #sec[hidden] { display: none; }
 #sec .ln { position: absolute; left: 0; right: 0; }
 #sec .ch { position: absolute; top: 0; white-space: pre; line-height: 1.25; transform-origin: 50% 50%; will-change: transform, opacity; text-shadow: 0 0 12px rgba(110,231,216,.25); }
-.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.seg label { position: relative; }
-.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.seg span { display: block; min-height: 40px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 5px; background: #131b27; }
-.seg input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-.sw { display: inline-flex; align-items: center; gap: 8px; }
-.sw[aria-checked="true"], .chain[aria-pressed="true"] { border-color: var(--accent); }
-.sw .dot { width: 26px; height: 14px; border-radius: 8px; background: #2a3646; position: relative; flex: none; }
-.sw .dot::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #9aa8ba; transition: transform .15s; }
-.sw[aria-checked="true"] .dot { background: var(--accent); }
-.sw[aria-checked="true"] .dot::after { transform: translateX(12px); background: var(--accent-ink); }
-.chain { width: 44px; padding: 0; display: inline-grid; place-items: center; color: var(--muted); }
-.chain[aria-pressed="true"] { color: var(--accent); }
-.chain svg { width: 22px; height: 22px; }
-.chain .broken { display: none; } .chain[aria-pressed="false"] .whole { display: none; } .chain[aria-pressed="false"] .broken { display: inline; }
-.feat { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.note { color: var(--muted); font-size: 12.5px; margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-body.clean #ctrl, body.clean h1, body.clean #status { display: none; }
+body.clean h1, body.clean #status { display: none; }
 body.clean main { padding-block: 0; min-height: 100vh; align-content: center; }
 body.clean #stage { width: min(100%, calc(100vh * var(--ar))); border-radius: 0; }
 #cleanbar { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; gap: 8px; }
 #cleanbar button { min-height: 32px; padding: 4px 10px; font-size: 12px; opacity: .35; }
 #cleanbar button:hover, #cleanbar button:focus-visible { opacity: 1; }
 body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
-#linkout { font: 12px ui-monospace, monospace; color: var(--fg); word-break: break-all; user-select: all; margin: 0; padding: 8px; background: #0b1017; border: 1px solid var(--line); border-radius: 5px; }
 #stage canvas { touch-action: manipulation; }
-#debug { font: 12px ui-monospace, monospace; color: var(--muted); margin: 0; }
-@media (max-width: 480px) { body { padding-inline: 16px; } .row > button { flex: 1 1 auto; } }
-@media (prefers-reduced-motion: reduce) { #stage canvas { transition-duration: .2s; } .sw .dot::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #stage canvas { transition-duration: .2s; } }
 </style>
 </head>
 <body>
@@ -92,49 +53,67 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
   <div id="stage" role="img" aria-label="Glass cubes spelling the message"><canvas id="gl"></canvas><div id="sec" hidden></div></div>
   <p id="status" role="status" aria-live="polite"></p>
 
+  <section id="controls" aria-label="Card controls">
   <form class="ctrl" id="ctrl" autocomplete="off">
-    <div class="row">
-      <button type="button" id="replay" class="primary">Replay</button>
-      <div class="msg">
-        <label class="lbl" for="msg">Message (up to 3 lines, Enter adds a line)</label>
-        <textarea id="msg" rows="3" maxlength="260" spellcheck="false" autocapitalize="off">THANK YOU</textarea>
-        <p class="cnt" id="msgcnt" aria-live="polite"></p>
-        <p class="warn" id="msgnote" hidden></p>
-        <p class="warn" id="emonote" hidden></p>
+    <fieldset data-group="message">
+      <legend>Message</legend>
+      <div class="row">
+        <button type="button" id="replay" class="primary">Replay</button>
+        <div class="msg">
+          <label class="lbl" for="msg">Message (up to 3 lines, Enter adds a line)</label>
+          <textarea id="msg" rows="3" maxlength="260" spellcheck="false" autocapitalize="off">THANK YOU</textarea>
+          <p class="cnt" id="msgcnt" aria-live="polite"></p>
+          <p class="warn" id="msgnote" hidden></p>
+          <p class="warn" id="emonote" hidden></p>
+        </div>
+        <button type="submit" id="setmsg">Set message</button>
       </div>
-      <button type="submit" id="setmsg">Set message</button>
-    </div>
+      <div class="row">
+        <div class="msg small">
+          <label class="lbl" for="msg2">Secondary message (long notes shrink to fit, optional)</label>
+          <textarea id="msg2" rows="2" maxlength="1200" spellcheck="false" autocapitalize="off"></textarea>
+          <p class="cnt" id="msg2cnt" aria-live="polite"></p>
+        </div>
+        <div>
+          <label class="lbl" for="mode2">Secondary effect</label>
+          <select id="mode2"><option value="off" selected>Off</option><option value="fade">Fade</option><option value="decode">Decode</option></select>
+        </div>
+      </div>
+    </fieldset>
 
-    <div class="row">
-      <div class="msg small">
-        <label class="lbl" for="msg2">Secondary message (long notes shrink to fit, optional)</label>
-        <textarea id="msg2" rows="2" maxlength="1200" spellcheck="false" autocapitalize="off"></textarea>
-        <p class="cnt" id="msg2cnt" aria-live="polite"></p>
-      </div>
-      <div>
-        <label class="lbl" for="mode2">Secondary effect</label>
-        <select id="mode2"><option value="off" selected>Off</option><option value="fade">Fade</option><option value="decode">Decode</option></select>
-      </div>
-    </div>
-
-    <div class="row">
-      <fieldset>
-        <legend>Background</legend>
-        <div class="seg" role="radiogroup" aria-label="Background">
-          <label><input type="radio" name="bg" id="bg-magitech" value="magitech"><span>Magitech</span></label>
+    <fieldset data-group="look">
+      <legend>Look</legend>
+      <div class="row">
+        <div>
+          <span class="lbl">Background</span>
+          <div class="seg" role="radiogroup" aria-label="Background">
+          <label id="bgopt-magitech"><input type="radio" name="bg" id="bg-magitech" value="magitech"><span>Magitech</span></label>
           <label><input type="radio" name="bg" id="bg-die" value="die" checked><span>Die</span></label>
           <label><input type="radio" name="bg" id="bg-pcb" value="pcb"><span>PCB</span></label>
           <label><input type="radio" name="bg" id="bg-veins" value="veins"><span>Veins</span></label>
         </div>
-      </fieldset>
-      <div id="palwrap" hidden>
-        <label class="lbl" for="pal">Palette</label>
-        <select id="pal"></select>
+        </div>
+        <div id="palwrap" hidden>
+          <label class="lbl" for="pal">Palette</label>
+          <select id="pal"></select>
+        </div>
       </div>
-    </div>
+      <div class="feat">
+        <button type="button" class="sw" id="t-tight" role="switch" aria-checked="true"><span class="dot"></span>Tight spacing</button>
+        <button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
+        <button type="button" class="chain" id="t-link" aria-pressed="true" aria-label="Link letter and cube rotation" title="Link letter and cube rotation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g class="whole"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></g>
+            <g class="broken"><path d="M9.5 14.5l-1 1a4.5 4.5 0 0 1-6.4-6.4l3-3a4.5 4.5 0 0 1 6.4 0"/><path d="M14.5 9.5l1-1a4.5 4.5 0 0 1 6.4 6.4l-3 3a4.5 4.5 0 0 1-6.4 0"/><path d="M12 3v2M12 19v2M3 12h0" opacity="0"/><path d="M8 4l1.2 2.2M16 20l-1.2-2.2"/></g>
+          </svg>
+        </button>
+        <button type="button" class="sw" id="t-cubes" role="switch" aria-checked="false"><span class="dot"></span>Cubes rotate</button>
+      </div>
+      <p class="note">The chain only matters when letters and cubes both rotate: linked, they turn together; unlinked, they turn independently in opposite directions.</p>
+    </fieldset>
 
-    <fieldset>
-      <legend>Circuit</legend>
+    <fieldset data-group="motion">
+      <legend>Motion</legend>
       <div class="cc">
         <div><label class="lbl" for="spd">Circuit speed <output id="spd-o" for="spd"></output></label><input type="range" id="spd" min="0.05" max="2" step="0.05" value="0.6"></div>
         <div><button type="button" class="sw" id="t-crawl" role="switch" aria-checked="true"><span class="dot"></span>Crawl after message resolves</button></div>
@@ -144,42 +123,31 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
         <div><button type="button" class="sw" id="t-runes" role="switch" aria-checked="true"><span class="dot"></span>Runes</button></div>
         <div><button type="button" class="sw" id="t-cpulse" role="switch" aria-checked="true"><span class="dot"></span>Click and hover pulses</button></div>
         <div><button type="button" class="sw" id="t-pvar" role="switch" aria-checked="true"><span class="dot"></span>Pulse variation</button></div>
+        <div><button type="button" class="sw" id="t-lanes" role="switch" aria-checked="false"><span class="dot"></span>Sliding lanes</button></div>
+        <div><button type="button" class="sw" id="t-sweep" role="switch" aria-checked="true"><span class="dot"></span>Light sweep</button></div>
         <div><label class="lbl" for="cseed">Circuit seed (number or any text)</label>
-          <div class="row"><input type="text" id="cseed" value="7" inputmode="numeric" autocomplete="off" spellcheck="false" style="flex:1 1 90px;min-width:0">
+          <div class="row"><input type="text" id="cseed" value="7" inputmode="numeric" autocomplete="off" spellcheck="false">
           <button type="button" id="reseed"><svg class="die" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg>Randomize</button></div></div>
       </div>
       <p class="note" id="ccnote" hidden></p>
     </fieldset>
 
-    <fieldset>
-      <legend>Motion features</legend>
-      <div class="feat">
-        <button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
-        <button type="button" class="chain" id="t-link" aria-pressed="true" aria-label="Link letter and cube rotation" title="Link letter and cube rotation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <g class="whole"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></g>
-            <g class="broken"><path d="M9.5 14.5l-1 1a4.5 4.5 0 0 1-6.4-6.4l3-3a4.5 4.5 0 0 1 6.4 0"/><path d="M14.5 9.5l1-1a4.5 4.5 0 0 1 6.4 6.4l-3 3a4.5 4.5 0 0 1-6.4 0"/><path d="M12 3v2M12 19v2M3 12h0" opacity="0"/><path d="M8 4l1.2 2.2M16 20l-1.2-2.2"/></g>
-          </svg>
-        </button>
-        <button type="button" class="sw" id="t-cubes" role="switch" aria-checked="false"><span class="dot"></span>Cubes rotate</button>
-        <button type="button" class="sw" id="t-lanes" role="switch" aria-checked="false"><span class="dot"></span>Sliding lanes</button>
-        <button type="button" class="sw" id="t-sweep" role="switch" aria-checked="true"><span class="dot"></span>Light sweep</button>
-        <button type="button" class="sw" id="t-tight" role="switch" aria-checked="true"><span class="dot"></span>Tight spacing</button>
+    <fieldset data-group="share">
+      <legend>Share</legend>
+      <div class="row">
+        <button type="button" id="hidectl">Hide controls</button>
+        <button type="button" id="copylink">Copy JSON settings</button>
+        <button type="button" id="copyqlink">Copy share link</button>
+        <label class="chk"><input type="checkbox" id="qanchor"> use #anchor, not ?query</label>
+        <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
       </div>
-      <p class="note" style="margin-top:8px">The chain only matters when letters and cubes both rotate: linked, they turn together; unlinked, they turn independently in opposite directions.</p>
+      <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
+      <p class="warn" id="linkwarn" hidden></p>
+      <p class="note" id="linknote" hidden>Paste this JSON to Claude to build a new card with these settings preset. Press c to toggle controls.</p>
+      <p id="debug" hidden></p>
     </fieldset>
-    <div class="row">
-      <button type="button" id="hidectl">Hide controls</button>
-      <button type="button" id="copylink">Copy JSON settings</button>
-      <button type="button" id="copyqlink">Copy share link</button>
-      <label class="chk"><input type="checkbox" id="qanchor"> use #anchor, not ?query</label>
-      <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
-    </div>
-    <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
-    <p class="warn" id="linkwarn" hidden></p>
-    <p class="note" id="linknote" hidden>Paste this JSON to Claude to build a new card with these settings preset. Press c to toggle controls.</p>
-    <p id="debug" hidden></p>
   </form>
+  </section>
 </main>
 <div id="cleanbar"><button type="button" id="replayfloat" aria-label="Replay">Replay</button><button type="button" id="showctl" aria-label="Show controls">Show controls</button></div>
 
