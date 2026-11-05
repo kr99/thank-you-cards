@@ -217,9 +217,9 @@ renderer.autoClear = true;
 var scene = new T.Scene();
 var camera = new T.PerspectiveCamera(K.fov, 1.75, 0.1, 100);
 
-var bg = CB.create({ width: K.bgSize, height: K.bgSize, variant: S.bg, seed: S.bgSeed, pow2: true });
+var bgLayer = Background.create(CB, { width: K.bgSize, height: K.bgSize, variant: S.bg, seed: S.bgSeed, pow2: true }), bg = bgLayer.inst;
 var HAS_POINTER_API = typeof bg.hoverAt === 'function' && typeof bg.pulseAt === 'function';
-function applyPal(n) { n = n || 'tron'; if (!(CB.palettes && Object.prototype.hasOwnProperty.call(CB.palettes, n))) n = 'tron'; PAL = n; if (typeof bg.setPalette === 'function') { try { bg.setPalette(n); } catch (e) { PAL = 'tron'; } } }
+function applyPal(n) { bgLayer.setPalette(n); PAL = bgLayer.palette; }
 applyPal(PAL);
 var bgTex = new T.CanvasTexture(bg.canvas);
 bgTex.generateMipmaps = true; bgTex.minFilter = T.LinearMipmapLinearFilter;  // mips feed the post-resolve blur (uBgLod bias) bgTex.magFilter = T.LinearFilter;
@@ -423,26 +423,19 @@ function layoutSecondary() {
   var r = secEl.getBoundingClientRect();
   if (r.width < 8 || r.height < 8) return;   // stage hidden: retried by the ResizeObserver
   secCtx.font = '500 100px ' + SEC_FONT;
-  var bw = r.width * .94, maxPx = Math.max(11, Math.min(30, r.height * .36));
-  var LH = 1.25, boxH = r.height * .92, fitMeasure = function (str) { return secCtx.measureText(str).width / 100 * maxPx; };
-  var fit = { scale: 1 }, sc;
-  for (sc = 1; sc >= .3; sc = Math.round((sc - .05) * 100) / 100) {   // largest scale whose wrapped lines also fit the strip height
-    var ml = Math.max(1, Math.floor(boxH / (LH * maxPx * sc)));
-    fit = CF.fitText(W.sec, bw, fitMeasure, { maxLines: ml, minScale: sc });
-    if (fit.lines.length <= ml) break;
-  }
-  var lay = T2.secondaryLayout(W.sec, { w: bw, h: boxH * 4 }, { advanceFn: function (g) { return secCtx.measureText(g).width; }, fontPx: 100, maxScale: maxPx * fit.scale / 100, minScale: maxPx * fit.scale / 100, maxLines: 99, lineHeight: LH });
+  secCtx.font = '500 100px ' + SEC_FONT;
+  var L = TextLayer.build({ text: W.sec, w: r.width, h: r.height }, function (str) { return secCtx.measureText(str).width; });
   secEl.setAttribute('role', 'img'); secEl.setAttribute('aria-label', W.sec.replace(/\n/g, ' '));
-  var top = Math.max(0, (r.height - lay.height) / 2), fs = 100 * lay.scale, left = (r.width - bw) / 2;
-  lay.lines.forEach(function (gs, li) {
-    var ln = document.createElement('div'); ln.className = 'ln'; ln.style.top = (top + li * lay.lineHeight) + 'px'; ln.style.height = lay.lineHeight + 'px';
-    ln.setAttribute('aria-hidden', 'true');
-    gs.forEach(function (g, k) {
-      var sp = document.createElement('span'); sp.className = 'ch'; sp.textContent = g; sp.style.fontSize = fs + 'px';
-      sp.style.left = (left + lay.positions[li].x[k]) + 'px'; ln.appendChild(sp);
+  var fs = L.fontPx;
+  L.lines.forEach(function (ln) {
+    var el = document.createElement('div'); el.className = 'ln'; el.style.top = ln.top + 'px'; el.style.height = ln.height + 'px';
+    el.setAttribute('aria-hidden', 'true');
+    ln.glyphs.forEach(function (o) {
+      var g = o.g, sp = document.createElement('span'); sp.className = 'ch'; sp.textContent = g; sp.style.fontSize = fs + 'px';
+      sp.style.left = o.left + 'px'; el.appendChild(sp);
       secState.spans.push({ el: sp, g: g, shown: g, emo: T2.isEmoji(g), blank: /^\s+$/.test(g) });
     });
-    secEl.appendChild(ln);
+    secEl.appendChild(el);
   });
   renderSecondary(true);
 }
