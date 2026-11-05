@@ -42,14 +42,14 @@ test('typed newlines start new lines', () => {
   assert.deepStrictEqual(fitText('one\ntwo', W, fakeMeasure, { maxLines: 2 }).lines, ['one', 'two']);
 });
 
-test('layoutBoxes: m1 and m2 never intersect for any m2 length, and m2 grows with text', () => {
+test('layoutBoxes: m1 and m2 never intersect for any m2 line count, and m2 grows with lines', () => {
   let prev = 0;
-  for (const n of [0, 10, 100, 300, 500, 2000]) {
-    const b = layoutBoxes({ rows: 4, m2Chars: n });
+  for (const n of [0, 1, 2, 4, 8, 30]) {
+    const b = layoutBoxes({ rows: 4, m2Lines: n });
     assert.ok(b.m1.y + b.m1.h <= b.m2.y + 1e-9, 'overlap at ' + n);
     assert.ok(b.m2.h >= prev);
     prev = b.m2.h;
     assert.strictEqual(b.total, b.m1.h + b.m2.h);
   }
-  assert.strictEqual(layoutBoxes({ rows: 4, m2Chars: 0 }).m2.h, 0);
+  assert.strictEqual(layoutBoxes({ rows: 4, m2Lines: 0 }).m2.h, 0);
 });
