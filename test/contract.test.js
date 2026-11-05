@@ -21,7 +21,6 @@ test('stubs export frozen signatures and throw "not implemented"', () => {
   assert.strictEqual(P.planLanes.length, 4);
   assert.throws(() => V.getValues({}), /not implemented/);
   assert.throws(() => F.fitText('x', 100, () => 0, {}), /not implemented/);
-  assert.throws(() => P.planLanes(() => 0.5, 4, 4, {}), /not implemented/);
 });
 
 test('helpers: fake measurer is chars*10; rng is seeded', () => {

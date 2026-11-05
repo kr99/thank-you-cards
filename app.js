@@ -1,7 +1,7 @@
 (function () {
 'use strict';
 var CT = window.CardTiming, T2 = window.CardText;
-var G = window.GlyphEngine, CB = window.CircuitBG, SL = window.SlideLanes, T = window.THREE;
+var G = window.GlyphEngine, CB = window.CircuitBG, SL = window.SlideLanes, PL = window.PlanLanes, T = window.THREE;
 var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
 var $ = function (id) { return document.getElementById(id); };
@@ -370,7 +370,7 @@ function play() {
   });
   if (S.lanes) {
     W.lanes = new SL({ cols: W.cols, rows: W.rows, seed: S.seed * 13, cfg: { maxConcurrent: 5, maxDist: 2 } });
-    W.lanes.scramble(Math.round((W.cols + W.rows) * 1.1));
+    W.lanes.scramblePlan(PL.planLanes(W.lanes.rng, W.rows, W.cols, { rounds: 6, maxShift: 5 }));
   } else W.lanes = null;
   setStatus('Resolving…');
   document.body.dataset.state = 'resolving'; document.body.dataset.phase = 'resolving';

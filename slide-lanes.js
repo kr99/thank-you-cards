@@ -153,6 +153,17 @@
     return true;
   };
 
+  /** Queue a planned scramble: rounds [{axis,moves:[{i,d}]}] from PlanLanes; same-axis moves are queued back to back. */
+  P.scramblePlan = function (rounds) {
+    if (this.mode === 'solving') return false;
+    for (var k = 0; k < rounds.length; k++) for (var j = 0; j < rounds[k].moves.length; j++) {
+      var m = rounds[k].moves[j];
+      this.queue.push(newMove(this, rounds[k].axis, m.i, m.d));
+    }
+    this.mode = 'scrambling';
+    return true;
+  };
+
   /** Cancel unstarted scramble moves, then queue inverse of everything that started, newest first. */
   P.solve = function () {
     if (this.mode === 'solving') return false;
