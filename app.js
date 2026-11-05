@@ -18,7 +18,7 @@ var reduced = Q.get('reduced') === '1' || HASH0.reduced || !!(window.CARD_CONFIG
 
 /* ------------------------------------------------------------ settings */
 var S = {
-  text: Q.get('text') || 'THANK YOU',  // typed casing is kept exactly (no uppercasing anywhere)
+  text: Q.get('text') || 'YOUR MESSAGE HERE',  // typed casing is kept exactly (no uppercasing anywhere)
   text2: '', mode2: 'off', tight: true,
   bg: Q.get('bg') || 'die',            // DEFAULT_BG is die on purpose (see refs/glass-card.md); CB.variants really lists magitech, the switcher offers it
   bgSeed: parseInt(Q.get('bgseed') || '7', 10),
@@ -278,7 +278,7 @@ function retight() {  // recompute the tight layout from W.lines; also run when 
 }
 function build(text) {
   var P = parsePrimary(text), lines = P.lines;
-  if (!lines.length) { P = parsePrimary('THANK YOU'); lines = P.lines; }
+  if (!lines.length) { P = parsePrimary('YOUR MESSAGE HERE'); lines = P.lines; }
   var longest = Math.max.apply(null, lines.map(function (l) { return l.length; }));
   var cols = S.colsOverride || clamp(longest + 2, 7, 42), rows = S.rowsOverride || clamp(lines.length + 2, 3, 5);
   W.lines = lines; W.cols = cols; W.rows = rows; W.n = cols * rows; W.notes = P.notes;
