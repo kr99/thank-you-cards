@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-var CT = window.CardTiming, T2 = window.CardText;
+var CT = window.CardTiming, T2 = window.CardText, CF = window.CardFit;
 var G = window.GlyphEngine, CB = window.CircuitBG, SL = window.SlideLanes, PL = window.PlanLanes, T = window.THREE;
 var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
@@ -285,7 +285,7 @@ function build(text) {
   W.hasEmoji = lines.some(function (l) { return l.some(function (g) { return T2.isEmoji(g); }); });
   W.target = G.layoutText(lines, cols, rows);
   var sec = parseSecondary(S.text2).text;
-  W.sec = (S.mode2 !== 'off' && sec) ? sec : ''; W.secExtra = W.sec ? 1.5 : 0;
+  W.sec = (S.mode2 !== 'off' && sec) ? sec : ''; W.secExtra = CF.layoutBoxes({ rows: rows, m2Chars: W.sec.length }).m2.h;
   run.tightFresh = false; retight();
   if (cubeMesh) { scene.remove(cubeMesh); cubeMesh.geometry.dispose(); }
   var N = W.n * 4, base = new T.BoxGeometry(1, 1, 1);
@@ -424,7 +424,14 @@ function layoutSecondary() {
   if (r.width < 8 || r.height < 8) return;   // stage hidden: retried by the ResizeObserver
   secCtx.font = '500 100px ' + SEC_FONT;
   var bw = r.width * .94, maxPx = Math.max(11, Math.min(30, r.height * .36));
-  var lay = T2.secondaryLayout(W.sec, { w: bw, h: r.height * .92 }, { advanceFn: function (g) { return secCtx.measureText(g).width; }, fontPx: 100, maxScale: maxPx / 100, minScale: .09, maxLines: 2, lineHeight: 1.25 });
+  var LH = 1.25, boxH = r.height * .92, fitMeasure = function (str) { return secCtx.measureText(str).width / 100 * maxPx; };
+  var fit = { scale: 1 }, sc;
+  for (sc = 1; sc >= .3; sc = Math.round((sc - .05) * 100) / 100) {   // largest scale whose wrapped lines also fit the strip height
+    var ml = Math.max(1, Math.floor(boxH / (LH * maxPx * sc)));
+    fit = CF.fitText(W.sec, bw, fitMeasure, { maxLines: ml, minScale: sc });
+    if (fit.lines.length <= ml) break;
+  }
+  var lay = T2.secondaryLayout(W.sec, { w: bw, h: boxH * 4 }, { advanceFn: function (g) { return secCtx.measureText(g).width; }, fontPx: 100, maxScale: maxPx * fit.scale / 100, minScale: maxPx * fit.scale / 100, maxLines: 99, lineHeight: LH });
   secEl.setAttribute('role', 'img'); secEl.setAttribute('aria-label', W.sec.replace(/\n/g, ' '));
   var top = Math.max(0, (r.height - lay.height) / 2), fs = 100 * lay.scale, left = (r.width - bw) / 2;
   lay.lines.forEach(function (gs, li) {
@@ -673,7 +680,7 @@ function updateCounters() {
   var n1 = parsePrimary($('msg').value).notes; if (l1 > CS.MAX_LINES && n1.indexOf('Only') < 0) { /* parsePrimary already reports it */ }
   var mn = $('msgnote'); mn.hidden = !n1.length; mn.textContent = n1.join(' ');
   var i2 = CS.sanitizeInfo($('msg2').value, CS.MAX_LINES2, CS.MAX_MSG2), l2 = $('msg2').value.split(/\r?\n/).filter(function (x) { return x.trim(); }).length;
-  $('msg2cnt').textContent = 'lines ' + Math.min(l2, 99) + '/' + CS.MAX_LINES2 + '   characters ' + CS.graphemes(i2.text.replace(/\n/g, '')).length + '/' + CS.MAX_MSG2 + (i2.droppedLines ? '   extra lines dropped' : '') + (i2.truncated ? '   trimmed' : '');
+  $('msg2cnt').textContent = 'lines ' + Math.min(l2, 99) + '/' + CS.MAX_LINES2 + '   characters ' + CS.graphemes(i2.text.replace(/\n/g, '')).length + '/' + CS.MAX_MSG2 + (i2.droppedLines ? '   extra lines dropped' : '') + (i2.truncated ? '   too long: trimmed to ' + CS.MAX_MSG2 : '');
 }
 function replay() { play(); }
 
