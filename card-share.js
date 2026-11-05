@@ -6,6 +6,7 @@
   else root.CardShare = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  var MP = typeof module === 'object' && module.exports ? require('./motion-phases.js') : (typeof MotionPhases !== 'undefined' ? MotionPhases : null);
   var BGS = ['die', 'pcb', 'veins', 'magitech'];
   var S2 = ['off', 'fade', 'decode'], LAYS = ['grid', 'tight'];
   var MAX_TOKEN = 6000, MAX_HASH = 6200, MAX_JSON = 4500, MAX_FRAGMENT = 1800;
@@ -69,7 +70,16 @@
     NUMS.forEach(function (k) { var v = o[k.k], n = +v; if (v != null && typeof v === 'number' && isFinite(n)) out[k.k] = Math.round(Math.max(k.lo, Math.min(k.hi, n)) * 1000) / 1000; });
     if (o.cseed != null && typeof o.cseed !== 'object') { var cs = clampInt(o.cseed, 0, 999999999); if (cs !== null) out.cseed = cs; }
     BOOLS.forEach(function (k) { if (typeof o[k] === 'boolean') out[k] = o[k]; else if (o[k] === 0 || o[k] === 1) out[k] = !!o[k]; });
+    var mp = validateMotionPhases(o.mp);
+    if (mp) out.mp = mp;
     return out;
+  }
+  /* 'mp' = array of motion-phase tag strings. Omitted (undefined) when absent, empty, or MotionPhases unavailable. */
+  function validateMotionPhases(list) {
+    if (!MP || !Array.isArray(list)) return undefined;
+    var tags = list.filter(function (t) { return typeof t === 'string'; });
+    var out = MP.normalize(tags);
+    return out.length ? out : undefined;
   }
 
   /* ---- UTF-8 <-> base64url ---- */
