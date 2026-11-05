@@ -285,7 +285,8 @@ function build(text) {
   W.hasEmoji = lines.some(function (l) { return l.some(function (g) { return T2.isEmoji(g); }); });
   W.target = G.layoutText(lines, cols, rows);
   var sec = parseSecondary(S.text2).text;
-  W.sec = (S.mode2 !== 'off' && sec) ? sec : ''; W.secExtra = CF.layoutBoxes({ rows: rows, m2Chars: W.sec.length }).m2.h;
+  W.sec = (S.mode2 !== 'off' && sec) ? sec : ''; W.secExtra = CF.layoutBoxes({ rows: rows, m2Lines: W.sec ? W.sec.split('\n').length : 0 }).m2.h;
+  secGrows = 0;
   run.tightFresh = false; retight();
   if (cubeMesh) { scene.remove(cubeMesh); cubeMesh.geometry.dispose(); }
   var N = W.n * 4, base = new T.BoxGeometry(1, 1, 1);
@@ -300,7 +301,7 @@ function build(text) {
   });
   geo.instanceCount = 0;
   cubeMesh = new T.Mesh(geo, cubeMat); cubeMesh.frustumCulled = false; cubeMesh.renderOrder = 1; scene.add(cubeMesh);
-  stage.style.setProperty('--ar', ((cols + 0.8) / (rows + 0.8 + W.secExtra)).toFixed(4));
+  applyAspect();
   cubeU.uHalf.value.set(cols / 2, rows / 2);
   W.lanes = null;
   resize();
@@ -415,6 +416,8 @@ var secEl = $('sec'), secCtx = document.createElement('canvas').getContext('2d')
 var secState = { spans: [], key: '', ver: 0 };
 var SEC_FONT = '"IBM Plex Sans", system-ui, sans-serif', SCR = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&@*+=<>?';
 function h32(a, b) { var x = (Math.imul(a + 1, 374761393) + Math.imul(b + 7, 668265263)) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; }
+var secGrows = 0, SEC_GROW_MAX = 3;
+function applyAspect() { stage.style.setProperty('--ar', ((W.cols + 0.8) / (W.rows + 0.8 + W.secExtra)).toFixed(4)); }
 function layoutSecondary() {
   secEl.textContent = ''; secState.spans = []; secState.key = ''; secState.ver++;
   if (!W.sec) { secEl.hidden = true; secEl.removeAttribute('aria-label'); return; }
@@ -423,8 +426,10 @@ function layoutSecondary() {
   var r = secEl.getBoundingClientRect();
   if (r.width < 8 || r.height < 8) return;   // stage hidden: retried by the ResizeObserver
   secCtx.font = '500 100px ' + SEC_FONT;
-  secCtx.font = '500 100px ' + SEC_FONT;
   var L = TextLayer.build({ text: W.sec, w: r.width, h: r.height }, function (str) { return secCtx.measureText(str).width; });
+  if (L.height > r.height + .5 && secGrows < SEC_GROW_MAX) {   // strip px scale linearly with secExtra (width fixed): grow once, then re-layout
+    secGrows++; W.secExtra *= L.height / r.height * 1.02; applyAspect(); resize(); return;
+  }
   secEl.setAttribute('role', 'img'); secEl.setAttribute('aria-label', W.sec.replace(/\n/g, ' '));
   var fs = L.fontPx;
   L.lines.forEach(function (ln) {

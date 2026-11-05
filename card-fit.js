@@ -41,10 +41,10 @@
   }
 
   /* Pure vertical layout in grid-cell units: m1 (primary, rows + 0.8) above m2 (secondary strip), disjoint by construction.
-   * m2 strip height grows with message length (about 60 chars per extra line). */
+   * m2 strip height grows with its line count (typed lines; wrap growth is applied by the caller once measured). */
   function layoutBoxes(o) {
-    var rows = o.rows > 0 ? o.rows : 1, n = o.m2Chars > 0 ? o.m2Chars : 0;
-    var m1h = rows + 0.8, m2h = n ? 1.5 + 0.4 * Math.max(0, Math.ceil(n / 60) - 2) : 0;
+    var rows = o.rows > 0 ? o.rows : 1, n = o.m2Lines > 0 ? o.m2Lines : 0;
+    var m1h = rows + 0.8, m2h = n ? 1.5 + 0.4 * Math.max(0, n - 2) : 0;
     return { m1: { y: 0, h: m1h }, m2: { y: m1h, h: m2h }, total: m1h + m2h };
   }
 
