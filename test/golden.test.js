@@ -32,3 +32,12 @@ test('golden: encode(decode(token)) round-trips', () => {
   assert.ok(t.startsWith('c.'));
   assert.deepStrictEqual(CS.decodeConfig(t), c);
 });
+
+const TOKEN_B = 'eyJtIjoiVEhBTksgWU9VLFxuS2ltYmVyISIsIm0yIjoiSSByZWFsbHkgYXBwcmVjaWF0ZWQgdGhlIHRpbWUgYW5kIHRob3VnaHRmdWwgaW50ZXJ2aWV3IHF1ZXN0aW9ucywgYW5kIGxvb2sgZm9yd2FyZCB0byBoZWFyaW5nIGZyb20geW91IGFnYWlu8J-YiiIsInMyIjoiZGVjb2RlIiwibGF5IjoidGlnaHQiLCJiZyI6InBjYiIsInBhbCI6InRyb24iLCJzZWVkIjoxMSwic3BkIjoxLjc1LCJjcmF3bEsiOjAuMTMsImJsdXJQeCI6Mi43LCJjc2VlZCI6OTA2NTM3LCJsZXR0ZXJzIjp0cnVlLCJjdWJlcyI6ZmFsc2UsImxpbmtlZCI6dHJ1ZSwibGFuZXMiOnRydWUsInN3ZWVwIjp0cnVlLCJjcmF3bCI6dHJ1ZSwiYmx1ciI6dHJ1ZSwicnVuZXMiOmZhbHNlLCJjcHVsc2UiOnRydWUsInB2YXIiOnRydWV9';
+test('golden: token B differs from A only in spd/crawlK', () => {
+  const a = CS.decodeConfig(TOKEN_A), b = CS.decodeConfig(TOKEN_B);
+  assert.strictEqual(b.spd, 1.75);
+  assert.strictEqual(b.crawlK, 0.13);
+  assert.deepStrictEqual(Object.assign({}, b, { spd: a.spd, crawlK: a.crawlK }), a);
+  assert.deepStrictEqual(CS.decodeConfig('c.' + TOKEN_B), b);
+});

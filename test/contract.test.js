@@ -19,7 +19,7 @@ test('stubs export frozen signatures and throw "not implemented"', () => {
   assert.strictEqual(typeof V.getValues, 'function');
   assert.strictEqual(F.fitText.length, 4);
   assert.strictEqual(P.planLanes.length, 4);
-  assert.throws(() => V.getValues({}), /not implemented/);
+  assert.deepStrictEqual(V.getValues({ get: () => undefined }), {});   // implemented by U4
 });
 
 test('helpers: fake measurer is chars*10; rng is seeded', () => {
