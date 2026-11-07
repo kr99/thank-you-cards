@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { planLanes4, sampleLanes4, LANES4_DEFAULTS } = require('../lanes4.js');
+const { planLanes4, sampleLanes4, LANES4_DEFAULTS, LANES4_UI, stageBounds } = require('../lanes4.js');
 
 const R = 3, C = 14, T = 5;
 const P = (seed, params, r = R, c = C) => planLanes4({ R: r, C: c, T, seed, params });
@@ -25,9 +25,9 @@ test('1 determinism', () => {
   assert.notDeepStrictEqual(P(5), P(6));
 });
 
-for (const PAIRING of ['rigid', 'fresh']) test('2 packed  at t=T ' + PAIRING, () => {
+test('2 packed  at t=T ', () => {
   for (let seed = 1; seed <= 40; seed++) {
-    const out = sampleLanes4(P(seed, { PAIRING }), T);
+    const out = sampleLanes4(P(seed, {}), T);
     assert.strictEqual(out.length, R * C);
     assert.ok(out.every(o => o.stopped));
     const keys = new Set(out.map(o => o.x + ',' + o.y));
@@ -59,38 +59,53 @@ test('4 gap fraction ~ GAP_P', () => {
 });
 
 test('9 defaults', () => {
-  assert.strictEqual(LANES4_DEFAULTS.PAIRING, 'rigid');
+  assert.ok(!('PAIRING' in LANES4_DEFAULTS));
   assert.strictEqual(LANES4_DEFAULTS.Q_FULL, 0);
-  assert.strictEqual(LANES4_DEFAULTS.CAP_COL, 1.5);
+  assert.strictEqual(LANES4_DEFAULTS.CAP_COL, 1.9);
   assert.ok(!('A0_GAPS' in LANES4_DEFAULTS));
+  assert.ok(!/rigid/.test(require('fs').readFileSync(require.resolve('../lanes4.js'), 'utf8')));
+});
+
+test('16 PAIRING ignored; GAP_P clamped to 0.20; UI keys', () => {
+  assert.deepStrictEqual(P(3, { PAIRING: 'rigid' }), P(3));
+  assert.deepStrictEqual(P(3, { GAP_P: 0.9 }), P(3, { GAP_P: 0.2 }));
+  assert.deepStrictEqual(LANES4_UI.map(u => u.key).sort(), ['GAP_P', 'K', 'T']);
+  const g = LANES4_UI.find(u => u.key === 'GAP_P');
+  assert.strictEqual(g.max, 0.2);
+  LANES4_UI.forEach(u => ['label', 'help', 'min', 'max', 'step', 'default'].forEach(f => assert.ok(f in u, u.key + '.' + f)));
+});
+
+test('17 ids unique per frame, stable and continuous across steps', () => {
+  for (let seed = 1; seed <= 20; seed++) {
+    const plan = P(seed), N = 500, dt = T / N;
+    let prev = null;
+    for (let i = 0; i <= N; i++) {
+      const cur = sampleLanes4(plan, i * dt), m = new Map(cur.map(o => [o.id, o]));
+      assert.strictEqual(m.size, cur.length, 'unique ids');
+      if (prev) cur.forEach(o => { const q = prev.get(o.id); if (q) assert.ok(Math.abs(q.x - o.x) < 0.6 && Math.abs(q.y - o.y) < 0.6, 'id jump seed ' + seed); });
+      prev = m;
+    }
+  }
+});
+
+test('18 stageBounds', () => {
+  const plan = P(2), b = stageBounds(plan);
+  assert.strictEqual(b.length, plan.K + 1);
+  assert.strictEqual(b[0], 0);
+  assert.ok(Math.abs(b[plan.K] - T) < 1e-9);
+  b.forEach((v, i) => { if (i) assert.ok(v > b[i - 1]); assert.ok(Math.abs(v - i * plan.D) < 1e-9); });
 });
 
 test('10 only on-board survivors carry; cube count never grows', () => {
   const onB = (x, y) => x >= 0 && x < C && y >= 0 && y < R;
-  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 30; seed++) {
-    const plan = P(seed, { PAIRING });
+  for (let seed = 1; seed <= 30; seed++) {
+    const plan = P(seed, {});
     for (let k = 0; k + 1 < plan.steps.length; k++) {
       const ends = plan.steps[k].cubes.filter(q => onB(q.tx, q.ty)).map(q => q.tx + ',' + q.ty).sort();
       const starts = plan.steps[k + 1].cubes.filter(q => !q.enter).map(q => q.fx + ',' + q.fy).sort();
       assert.deepStrictEqual(starts, ends);
       assert.ok(ends.length <= R * C);
     }
-  }
-});
-
-test('11 rigid: no backward; order; packed', () => {
-  const z = P(4, { CAP_ROW: 0, CAP_COL: 0, Q_FULL: 0, K: 2, PAIRING: 'rigid' });
-  assert.strictEqual(sampleLanes4(z, T).length, R * C);
-  for (let seed = 1; seed <= 40; seed++) {
-    const plan = P(seed, { PAIRING: 'rigid', Q_FULL: 0.3 });
-    plan.steps.forEach((st, k) => {
-      const dirOf = {}; st.lanes.forEach(l => { dirOf[l.index] = l.s >= 0 ? 1 : -1; });
-      st.cubes.forEach(q => {
-        const d = st.axis === 'row' ? (q.tx - q.fx) * dirOf[q.fy] : (q.ty - q.fy) * dirOf[q.fx];
-        assert.ok(d >= 0, 'no backward');
-      });
-    });
-    assert.strictEqual(sampleLanes4(plan, T).length, R * C);
   }
 });
 
@@ -139,14 +154,14 @@ test('8 params change distribution via same code path', () => {
 
 test('12 no mid-board pop: entering cubes start fully off board; frames continuous except at clip edge', () => {
   const R2 = 3, C2 = 14;
-  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 25; seed++) {
-    const plan = planLanes4({ R: R2, C: C2, T, seed, params: { PAIRING, Q_FULL: 0.2 } });
+  for (let seed = 1; seed <= 25; seed++) {
+    const plan = planLanes4({ R: R2, C: C2, T, seed, params: { Q_FULL: 0.2 } });
     let maxD = 0;
     plan.steps.forEach(st => st.cubes.forEach(q => {
       maxD = Math.max(maxD, Math.abs(q.tx - q.fx), Math.abs(q.ty - q.fy));
       if (q.enter) {
         const f = st.axis === 'row' ? q.fx : q.fy, L = st.axis === 'row' ? C2 : R2;
-        assert.ok(f <= -1 || f >= L, `${PAIRING} seed ${seed}: entering cube starts on board at ${f}`);
+        assert.ok(f <= -1 || f >= L, `seed ${seed}: entering cube starts on board at ${f}`);
       }
     }));
     const N = 1000, dt = T / N, delta = (Math.PI / 2) * maxD / plan.D * dt + 1e-6;
@@ -155,8 +170,8 @@ test('12 no mid-board pop: entering cubes start fully off board; frames continuo
     let prev = sampleLanes4(plan, 0);
     for (let i = 1; i <= N; i++) {
       const cur = sampleLanes4(plan, i * dt);
-      cur.forEach(o => assert.ok(near(o, prev) || edge(o), `${PAIRING} seed ${seed} frame ${i}: pop-in at ${o.x},${o.y}`));
-      prev.forEach(o => assert.ok(near(o, cur) || edge(o), `${PAIRING} seed ${seed} frame ${i}: vanish at ${o.x},${o.y}`));
+      cur.forEach(o => assert.ok(near(o, prev) || edge(o), `seed ${seed} frame ${i}: pop-in at ${o.x},${o.y}`));
+      prev.forEach(o => assert.ok(near(o, cur) || edge(o), `seed ${seed} frame ${i}: vanish at ${o.x},${o.y}`));
       prev = cur;
     }
   }
@@ -164,8 +179,8 @@ test('12 no mid-board pop: entering cubes start fully off board; frames continuo
 
 const ease = u => (1 - Math.cos(Math.PI * u)) / 2;
 test('13 gap widths between neighbour cubes (by identity) are continuous in t', () => {
-  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 40; seed++) {
-    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: { PAIRING } }), n = 400;
+  for (let seed = 1; seed <= 40; seed++) {
+    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: {} }), n = 400;
     plan.steps.forEach((st, k) => {
       const row = st.axis === 'row', L = row ? 14 : 3, by = {};
       st.cubes.forEach(q => { const key = row ? q.fy : q.fx; (by[key] = by[key] || []).push({ f: row ? q.fx : q.fy, t: row ? q.tx : q.ty }); });
@@ -177,7 +192,7 @@ test('13 gap widths between neighbour cubes (by identity) are continuous in t', 
         for (let i = 0; i <= n; i++) {
           const pos = a.map(c => c.f + (c.t - c.f) * ease(i / n));
           const g = a.slice(1).map((_, j) => ({ w: pos[j + 1] - pos[j] - 1, vis: pos[j] > -1 && pos[j + 1] < L }));
-          if (prev) g.forEach((x, j) => { if (x.vis && prev[j].vis) assert.ok(Math.abs(x.w - prev[j].w) <= bound, `${PAIRING} s${seed} step${k}: gap jump`); });
+          if (prev) g.forEach((x, j) => { if (x.vis && prev[j].vis) assert.ok(Math.abs(x.w - prev[j].w) <= bound, `s${seed} step${k}: gap jump`); });
           prev = g;
         }
       });
@@ -186,8 +201,8 @@ test('13 gap widths between neighbour cubes (by identity) are continuous in t', 
 });
 
 test('14 entering cubes start contiguous right behind the edge (gaps open on screen, not off-board)', () => {
-  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 40; seed++) {
-    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: { PAIRING } });
+  for (let seed = 1; seed <= 40; seed++) {
+    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: {} });
     plan.steps.forEach(st => {
       const row = st.axis === 'row', by = {};
       st.cubes.filter(q => q.enter).forEach(q => { const key = row ? q.fy : q.fx; (by[key] = by[key] || []).push(row ? q.fx : q.fy); });
@@ -195,7 +210,7 @@ test('14 entering cubes start contiguous right behind the edge (gaps open on scr
         a.sort((x, y) => x - y);
         // front space or mirrored: contiguous run ending adjacent to an edge
         const ok = a.every((v, i) => i === 0 || v - a[i - 1] === 1) && (a[a.length - 1] === -1 || a[0] === (row ? 14 : 3));
-        assert.ok(ok, `${PAIRING} s${seed}: ${a}`);
+        assert.ok(ok, `s${seed}: ${a}`);
       });
     });
   }
@@ -203,11 +218,11 @@ test('14 entering cubes start contiguous right behind the edge (gaps open on scr
 
 // ---- hole birth/death measurement (anonymous cubes; holes tracked by overlap) ----
 const HR = 3, HC = 14, HT = 5.5, HN = 1000, hdt = HT / HN;
-function holeStats(PAIRING, seeds) {
+function holeStats(seeds) {
   const R = HR, C = HC, T = HT, N = HN, dt = hdt;
   const S={born:0,bornEdge:0,died:0,diedEdge:0,wb:0,wd:0,bornPop:0,diedPop:0,ex:null};
   for(let seed=1;seed<=seeds;seed++){
-    const plan=planLanes4({R,C,T,seed,params:{PAIRING}});
+    const plan=planLanes4({R,C,T,seed,params:{}});
     const vmax=plan.steps.map(st=>Math.PI/2*Math.max(...st.cubes.map(q=>Math.max(Math.abs(q.tx-q.fx),Math.abs(q.ty-q.fy))))/plan.D);
     let prev=null,pk=-1;
     for(let i=0;i<=N;i++){
@@ -228,8 +243,8 @@ function holeStats(PAIRING, seeds) {
   return S;
 }
 
-for (const PAIRING of ['rigid', 'fresh']) test('15 interior holes open (born smoothly) as often as they close: ' + PAIRING, () => {
-  const S = holeStats(PAIRING, 30);
+test('15 interior holes open (born smoothly) as often as they close: ', () => {
+  const S = holeStats(30);
   assert.strictEqual(S.bornPop, 0, 'interior births must not pop');
   assert.strictEqual(S.diedPop, 0, 'interior deaths must not pop');
   assert.ok(S.born - S.bornEdge >= 150, `interior hole births: ${S.born - S.bornEdge} (edge ${S.bornEdge}); died ${S.died - S.diedEdge} interior`);

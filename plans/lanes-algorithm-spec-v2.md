@@ -11,11 +11,11 @@ Grid R rows x C cols of anonymous cubes. K shifts, alternating axis (rows, cols,
 |---|---|---|
 | K | 5 | number of shifts (axis alternates, rows first) |
 | T | given | phase length; shift duration D = T/K |
-| GAP_P | 0.05 | per-cell chance a cell is empty in any layout (~half of 14-wide rows have >=1 gap). No other gap rule, no cap. |
+| GAP_P | 0.15 (clamped <= 0.20) | per-cell chance a cell is empty in any layout (~half of 14-wide rows have >=1 gap). No other gap rule, no cap. |
 | LAMBDA | 0.5 | 0 = scale by own lane length, 1 = same scale both axes |
-| CAP_ROW / CAP_COL | 1 / 2 | max |shift| = CAP * lane length (cols may exceed lane = fast full replace) |
+| CAP_ROW / CAP_COL | 1 / 1.9 | max |shift| = CAP * lane length (cols may exceed lane = fast full replace) |
 | W_LO, W_HI | 0.5, 2 | per-lane size multiplier range, log-uniform |
-| Q_FULL | 0.05 | per lane per shift: override with full replace s = +-L |
+| Q_FULL | 0 (hidden) | per lane per shift: override with full replace s = +-L |
 | A0_GAPS | true | initial layout A0 uses GAP_P (false = full grid) |
 | seed | given | deterministic PRNG (mulberry32); same seed+params => same plan |
 

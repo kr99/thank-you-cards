@@ -32,15 +32,9 @@ var SPEC = [
  ['seed',0,9999,1,7,0,'Random seed','Same seed + settings = same animation','Grid & timing'],
  ['T',2,20,0.5,D.T,0,'Total time (s)','Length of the whole shuffle, ending at the letter lock','Grid & timing'],
  ['K',1,12,1,D.K,1,'Number of shifts (rows, cols, rows...)','Shifts alternate rows then columns; more shifts = shorter, faster slides','Grid & timing'],
- ['GAP_P',0,0.5,0.01,D.GAP_P,1,'Gap chance per cell (0.15 = 15%)','Chance any cell is empty in a start/end layout','Gaps'],
- ['Q_FULL',0,1,0.01,D.Q_FULL,1,'Chance of a full-lane replace','Per lane per shift: whole lane slides out, a new one slides in','Gaps'],
- ['LAMBDA',0,1,0.05,D.LAMBDA,1,'Row/col similarity','0 = each lane scales by its own length; 1 = rows and columns move the same distance','Shift size'],
- ['CAP_ROW',0,3,0.1,D.CAP_ROW,1,'Max shift: rows (x lane length)','Largest row slide as a multiple of row length','Shift size'],
- ['CAP_COL',0,3,0.1,D.CAP_COL,1,'Max shift: columns (x lane length)','Above 1 = a column can be fully replaced','Shift size'],
- ['W_LO',0.1,2,0.05,D.W_LO,1,'Lane speed variety: min multiplier','Slowest lane scale vs average','Shift size'],
- ['W_HI',0.5,5,0.05,D.W_HI,1,'Lane speed variety: max multiplier','Fastest lane scale vs average','Shift size']
+ ['GAP_P',0,0.2,0.01,D.GAP_P,1,'Gap chance per cell (0.15 = 15%)','Chance any cell is empty in a start/end layout','Gaps'],
 ];
-var V = {}, pairing = D.PAIRING, plans = [], cvs = [], sts = [], sums = [], t = 0, playing = true, last = performance.now();
+var V = {}, plans = [], cvs = [], sts = [], sums = [], t = 0, playing = true, last = performance.now();
 var panel = document.getElementById('panel');
 function fieldset(name) {
   var f = document.createElement('fieldset'), l = document.createElement('legend');
@@ -65,14 +59,8 @@ SPEC.forEach(function (s) {
   }
   g.append(row(s[6], s[7], ...els));
 });
-// Style
-var gs = fieldset('Style'), ps = document.createElement('select');
-ps.id = 'pairing'; ['rigid', 'fresh'].forEach(function (v) { ps.add(new Option(v)); });
-ps.onchange = function () { pairing = ps.value; build(); };
-var cmp = document.createElement('input'); cmp.type = 'checkbox'; cmp.id = 'cmp'; cmp.onchange = build;
 var rs = document.createElement('button'); rs.id = 'reset'; rs.textContent = 'Reset to defaults'; rs.onclick = setDefaults;
-gs.append(row('Gap style', 'rigid: back cube slides, neighbours chain behind it with new random hole widths (never backward); fresh: remaining cubes re-pair to a new layout', ps),
-  row('Compare', 'Two canvases, same seed: fresh vs rigid, one shared clock', cmp), row('Defaults', 'Restore every control', rs));
+fieldset('Defaults').append(row('Defaults', 'Restore every control', rs));
 // Playback
 var gp = fieldset('Playback'), play = document.createElement('button'), loop = document.createElement('input'),
   sp = document.createElement('select'), sc = document.createElement('input'), tout = document.createElement('output');
@@ -87,21 +75,19 @@ gp.append(row('Play / pause', 'Start or stop the clock', play), row('Loop', 'Res
 
 function setDefaults() {
   SPEC.forEach(function (s) { s.i.value = s[4]; s.o.textContent = s[4]; V[s[0]] = s[4]; });
-  pairing = ps.value = D.PAIRING; build();
+  build();
 }
-function mk(pair) {
-  var p = {}; SPEC.forEach(function (s) { if (s[5]) p[s[0]] = V[s[0]]; }); p.PAIRING = pair;
+function mk() {
+  var p = {}; SPEC.forEach(function (s) { if (s[5]) p[s[0]] = V[s[0]]; });
   return Lanes4.planLanes4({ R: V.R, C: V.C, T: V.T, seed: V.seed, params: p });
 }
 function build() {
-  var pairs = cmp.checked ? ['fresh', 'rigid'] : [pairing], host = document.getElementById('cv');
-  plans = pairs.map(mk); host.innerHTML = ''; cvs = []; sts = [];
-  pairs.forEach(function (pr) {
-    var w = document.createElement('div'), h = document.createElement('h3'), c = document.createElement('canvas'), st = document.createElement('div');
-    w.className = 'pane'; h.textContent = 'Gap style: ' + pr; st.className = 'st';
-    c.width = (Math.min(1100, V.C * 40 + 20) * (pairs.length > 1 ? 0.9 : 1)) | 0; c.height = V.R * 40 + 20;
-    w.append(h, c, st); host.append(w); cvs.push(c); sts.push(st);
-  });
+  var host = document.getElementById('cv');
+  plans = [mk()]; host.innerHTML = ''; cvs = []; sts = [];
+  var w = document.createElement('div'), c = document.createElement('canvas'), st = document.createElement('div');
+  w.className = 'pane'; st.className = 'st';
+  c.width = Math.min(1100, V.C * 40 + 20); c.height = V.R * 40 + 20;
+  w.append(c, st); host.append(w); cvs.push(c); sts.push(st);
   sc.max = V.T; t = Math.min(t, V.T);
 }
 function draw(plan, c) {
