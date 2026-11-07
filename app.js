@@ -59,7 +59,12 @@ function mergeCfg(c) {  // validated config -> S (before first build)
   ['crawl', 'blur', 'runes', 'cpulse', 'pvar'].forEach(function (k) { if (typeof c[k] === 'boolean') S[k] = c[k]; });
   ['spd', 'crawlK', 'blurPx'].forEach(function (k) { if (typeof c[k] === 'number') S[k] = c[k]; });
   if (c.cseed != null) S.bgSeed = c.cseed;
-  if (c.ln) Object.keys(c.ln).forEach(function (k) { LV[k] = c.ln[k]; });
+  if (c.ln) {
+    Object.keys(c.ln).forEach(function (k) { if (k !== 'R' && k !== 'C' && k !== 'loop' && k !== 'hold') LV[k] = c.ln[k]; });
+    if (c.ln.R) S.rowsOverride = c.ln.R; if (c.ln.C) S.colsOverride = c.ln.C;
+    if (c.ln.loop) lpOpts.loop = true; if (c.ln.hold != null) lpOpts.loopHold = c.ln.hold;
+    if (LPL) { LPL.setLoop(lpOpts.loop); LPL.setLoopHold(lpOpts.loopHold); }
+  }
 }
 if (BG_OK.indexOf(S.bg) < 0) S.bg = 'die';
 /* Saved state: this viewer's last settings, kept in localStorage (per browser; may be missing or throw, so every access is guarded).
@@ -752,13 +757,13 @@ function syncUI() {
 }
 function pushBgToggles() { if (bg.setRunes) bg.setRunes(S.runes); if (bg.setPulseVariance) bg.setPulseVariance(S.pvar); }
 function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
-    spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed, ln: { seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P } }; }
+    spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed, ln: { seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P, R: S.rowsOverride || undefined, C: S.colsOverride || undefined, loop: lpOpts.loop, hold: lpOpts.loopHold } }; }
 /* CURRENT form values as JSON, regardless of Replay: message/second line/mode read the DOM live, the rest is applied state. */
 function currentValuesJson() {
   var base = currentCfg(), live = { m: $('msg').value, m2: $('msg2').value || undefined, s2: $('mode2').value };
   return CardValues.toValues({ get: function (k) { return k in live ? live[k] : base[k]; } });
 }
-function cfgKey() { return [S.text, S.text2, S.mode2, S.tight, SEED0].join('|'); }
+function cfgKey() { return [S.text, S.text2, S.mode2, S.tight, SEED0, S.rowsOverride, S.colsOverride].join('|'); }
 /* Save this viewer's settings (debounced; skipped on share links and locked pages). Unapplied textarea text is saved too (live values), so a reload keeps what was typed. */
 var saveT = 0;
 function saveState() {
@@ -778,7 +783,7 @@ function applyHash(h) {  // live: from hub postMessage or hashchange
   mergeCfg(c);
   if (c.bg) { bg.setVariant(S.bg); } if (c.pal) applyPal(PAL);
   if (c.lanes === false) { W.lanes = null; LPL = null; }
-  if (c.ln && lanesPanel) lanesPanel.setValues(LV);
+  if (c.ln && lanesPanel) lanesPanel.setValues(Object.assign({ R: S.rowsOverride || W.rows, C: S.colsOverride || W.cols }, LV));
   syncUI(); pushBgToggles(); if (c.cseed != null && typeof bg.setSeed === 'function') bg.setSeed(S.bgSeed);
   bg.update(run.t); bgTex.needsUpdate = true;
   if (before !== cfgKey()) { build(S.text); replay(); } else if (reduced) requestStatic();

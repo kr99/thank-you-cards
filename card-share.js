@@ -86,6 +86,12 @@
       v = Math.max(f.lo, Math.min(f.hi, v)); v = f.int ? Math.round(v) : Math.round(v * 1000) / 1000;
       if (v !== f.d) out[f.k] = v;
     });
+    /* layout/playback extras: R rows, C cols (no fixed default: present only when overridden), loop (true only), hold seconds (default 2) */
+    [{ k: 'R', lo: 1, hi: 8 }, { k: 'C', lo: 3, hi: 30 }].forEach(function (f) {
+      var v = o[f.k]; if (typeof v === 'number' && isFinite(v)) out[f.k] = Math.round(Math.max(f.lo, Math.min(f.hi, v)));
+    });
+    if (o.loop === true) out.loop = true;
+    if (typeof o.hold === 'number' && isFinite(o.hold)) { var h = Math.round(Math.max(0, Math.min(10, o.hold)) * 100) / 100; if (h !== 2) out.hold = h; }
     return Object.keys(out).length ? out : undefined;
   }
   /* 'mp' = array of motion-phase tag strings. Omitted (undefined) when absent, empty, or MotionPhases unavailable. */
