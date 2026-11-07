@@ -124,6 +124,7 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
         <div><button type="button" class="sw" id="t-cpulse" role="switch" aria-checked="true"><span class="dot"></span>Click and hover pulses</button></div>
         <div><button type="button" class="sw" id="t-pvar" role="switch" aria-checked="true"><span class="dot"></span>Pulse variation</button></div>
         <div><button type="button" class="sw" id="t-lanes" role="switch" aria-checked="false"><span class="dot"></span>Sliding lanes</button></div>
+        <div id="lanes-panel"></div>
         <div><button type="button" class="sw" id="t-sweep" role="switch" aria-checked="true"><span class="dot"></span>Light sweep</button></div>
         <div><label class="lbl" for="cseed">Circuit seed (number or any text)</label>
           <div class="row"><input type="text" id="cseed" value="7" inputmode="numeric" autocomplete="off" spellcheck="false">
@@ -167,8 +168,10 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
 <script src="motion-picklist.js"></script>
 <script src="card-share.js"></script>
 <script src="card-values.js"></script>
-<script src="lanes3.js"></script>
-<script src="lanes-frame.js"></script>
+<script src="lanes4.js"></script>
+<script src="lanes-frame4.js"></script>
+<script src="lanes-player.js"></script>
+<script src="lanes-panel.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

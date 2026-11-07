@@ -1,8 +1,17 @@
 (function () {
 'use strict';
-var CT = window.CardTiming, T2 = window.CardText, CF = window.CardFit;
-var G = window.GlyphEngine, CB = window.CircuitBG, L3 = window.Lanes3, LF = window.LanesFrame, T = window.THREE;
-var LANES_D = 3, LANES_SPEED = .5;   // lanes window = [cascadeEnd - D, cascadeEnd]; phase scheduler will supply later
+var LP = window.LanesPlayer, CT = window.CardTiming, T2 = window.CardText, CF = window.CardFit;
+var G = window.GlyphEngine, CB = window.CircuitBG, L4 = window.Lanes4, LF4 = window.LanesFrame4, T = window.THREE;
+/* sliding rows (lanes4): window = [cascadeEnd - T, cascadeEnd]; LV = panel-visible values, LPL = current player (replaced when T/K change; panel talks to lpProxy) */
+var LV = { seed: 7, T: L4.LANES4_DEFAULTS.T, K: L4.LANES4_DEFAULTS.K, GAP_P: L4.LANES4_DEFAULTS.GAP_P }, LPL = null, lpOpts = { loop: false, loopHold: 2 }, lanesPanel = null, blankCell = { cx: 0, cy: 0, lx: 0, ly: 0, shown: null, blur: 0, act: 0, seed: .5 };
+var lpProxy = {};
+['toggle', 'play', 'pause', 'seek', 'setLoop', 'setLoopHold', 'getState'].forEach(function (m) {
+  lpProxy[m] = function (a) {
+    if (m === 'setLoop') lpOpts.loop = !!a; if (m === 'setLoopHold') lpOpts.loopHold = +a;
+    if (LPL) return LPL[m](a);
+    if (m === 'getState') return { t: 0, playing: false, loop: lpOpts.loop, phase: 'run', progress: 0, duration: LV.T, stageBounds: [] };
+  };
+});
 var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
 var $ = function (id) { return document.getElementById(id); };
@@ -50,6 +59,7 @@ function mergeCfg(c) {  // validated config -> S (before first build)
   ['crawl', 'blur', 'runes', 'cpulse', 'pvar'].forEach(function (k) { if (typeof c[k] === 'boolean') S[k] = c[k]; });
   ['spd', 'crawlK', 'blurPx'].forEach(function (k) { if (typeof c[k] === 'number') S[k] = c[k]; });
   if (c.cseed != null) S.bgSeed = c.cseed;
+  if (c.ln) Object.keys(c.ln).forEach(function (k) { LV[k] = c.ln[k]; });
 }
 if (BG_OK.indexOf(S.bg) < 0) S.bg = 'die';
 /* Saved state: this viewer's last settings, kept in localStorage (per browser; may be missing or throw, so every access is guarded).
@@ -374,14 +384,28 @@ function play() {
   if (S.lanes) {
     var ps = G.createSim(simOpts), ticks = 0;   // same-seed dry run = cascade length in ticks
     while (!ps.done && ticks < 5000) { ps.step(); ticks++; }
-    W.lanes = L3.planLanes3(W.rows, W.cols, { seed: S.seed * 13, D: LANES_D, speed: LANES_SPEED });
-    W.laneStartMs = Math.max(0, ticks * K.tickMs - W.lanes.D * 1000);
+    W.cascadeMs = ticks * K.tickMs; LPL = null; planLanes(false);
   } else W.lanes = null;
+  W.laneStarted = false;
   setStatus('Resolving…');
   document.body.dataset.state = 'resolving'; document.body.dataset.phase = 'resolving';
   if (reduced) { finishStatic(); fade(); setStatus('Message: ' + linesText()); }
 }
 
+/* (re)plan from LV; keepState: new player resumes old t/playing (T or K changed from the panel). window start = cascade end - T (truncated at 0 if cascade < T) */
+function planLanes(keepState) {
+  var old = LPL && LPL.getState();
+  W.lanes = L4.planLanes4({ R: W.rows, C: W.cols, T: LV.T, seed: LV.seed, params: { K: LV.K, GAP_P: LV.GAP_P } });
+  W.laneStartMs = Math.max(0, W.cascadeMs - W.lanes.T * 1000);
+  LPL = LP.createPlayer({ duration: W.lanes.T, stageBounds: L4.stageBounds(W.lanes), loop: lpOpts.loop, loopHold: lpOpts.loopHold });
+  if (keepState && old) { LPL.seek(old.t); if (old.playing) LPL.play(); }
+  if (lanesPanel) lanesPanel.redrawMarks();
+}
+function onLanesChange(v, k) {
+  LV.seed = v.seed; LV.T = v.T; LV.K = v.K; LV.GAP_P = v.GAP_P;
+  if (k === 'R' || k === 'C') { if (k === 'R') S.rowsOverride = v.R; else S.colsOverride = v.C; build(S.text); replay(); }
+  else if (W.lanes) planLanes(true);
+}
 function fade() {
   stage.classList.add('fading');
   setTimeout(function () { requestStatic(); stage.classList.remove('fading'); }, 190);
@@ -516,12 +540,17 @@ var motTmp = { };
 function writeInstances() {
   var cols = W.cols, rows = W.rows, n = 0, gx, gy, id, st, c, ls = null;
   var sweepS = run.sweepT >= 0 ? run.sweepT : null;
-  if (W.lanes && S.lanes && run.lockedAt === null) ls = LF.lanesFrame(W.lanes, run.ms, W.laneStartMs);
+  if (W.lanes && LPL && S.lanes && !reduced) {
+    var lst = LPL.getState();
+    // after the lock the window is only drawn while playing / scrubbed / holding (loop replay); at rest the grid shows
+    if (run.lockedAt === null || lst.phase !== 'done' || lst.playing) ls = LF4.lanesFrame4(W.lanes, lst.t);
+  }
   function put(id, px, py, mx, my, laneGlass, sc) {
-    c = W.cells[id];
+    if (n >= W.n * 4) return;   // instance buffer cap
+    c = W.cells[id] || blankCell;   // entering cubes beyond rows*cols: no glyph
     var x = px - (cols - 1) / 2, y = -(py - (rows - 1) / 2);
     var o3 = n * 3, o2 = n * 2, o4 = n * 4;
-    var gsc = 1, gdx = 0; if (W.so) { gdx = W.so.dx[id]; gsc = W.so.sc[id]; }
+    var gsc = 1, gdx = 0; if (W.so && id < W.n) { gdx = W.so.dx[id]; gsc = W.so.sc[id]; }
     gsc *= sc;   // aGly.x scales the whole cube (vertex shader)
     buf.pos[o3] = x + gdx; buf.pos[o3 + 1] = y; buf.pos[o3 + 2] = 0;
     buf.cube[o2] = c.cx; buf.cube[o2 + 1] = c.cy;
@@ -538,10 +567,10 @@ function writeInstances() {
     n++;
   }
   if (ls) {
-    for (id = 0; id < ls.length; id++) {
-      st = ls[id];
-      if (st.s <= 0) continue;   // hole not yet filled
-      put(id, st.x, st.y, st.vx * .25, -st.vy * .25, 0, st.s);
+    for (var li = 0; li < ls.length; li++) {
+      st = ls[li];
+      if (st.s <= 0) continue;   // fully clipped off the board
+      put(st.id, st.x, st.y, st.vx * .25, -st.vy * .25, 0, st.s);
     }
   } else for (gy = 0; gy < rows; gy++) for (gx = 0; gx < cols; gx++) put(gy * cols + gx, gx, gy, 0, 0, 0, 1);
   cubeMesh.geometry.instanceCount = n;
@@ -561,6 +590,10 @@ function applyBgControls() {
 function drawFrame(dt, animate, skipRender) {
   if (animate) {
     run.t += dt; run.ms += dt * 1000;
+    if (LPL && S.lanes) {   // player drives lanes time; starts when the window opens
+      if (!W.laneStarted && run.ms >= W.laneStartMs && run.lockedAt === null) { W.laneStarted = true; LPL.play(); }
+      LPL.tick(dt * 1000); if (lanesPanel) lanesPanel.sync();
+    }
     bgAcc += dt;
     applyBgControls();
     if (bgAcc >= 1 / K.bgFps - 0.0005) { bg.update(run.t); bgTex.needsUpdate = true; bgAcc = 0; }
@@ -615,7 +648,7 @@ function setSwitch(btn, key, on) { S[key] = on; btn.setAttribute('aria-checked',
   setSwitch(b, k, S[k]);
   b.addEventListener('click', function () {
     setSwitch(b, k, !S[k]);
-    if (k === 'lanes' && !S.lanes) W.lanes = null;
+    if (k === 'lanes' && !S.lanes) { W.lanes = null; LPL = null; }
     if (k === 'sweep' && S.sweep && !reduced) { run.sweepT = 0; }
   });
 });
@@ -718,7 +751,7 @@ function syncUI() {
 }
 function pushBgToggles() { if (bg.setRunes) bg.setRunes(S.runes); if (bg.setPulseVariance) bg.setPulseVariance(S.pvar); }
 function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
-    spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed }; }
+    spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed, ln: { seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P } }; }
 /* CURRENT form values as JSON, regardless of Replay: message/second line/mode read the DOM live, the rest is applied state. */
 function currentValuesJson() {
   var base = currentCfg(), live = { m: $('msg').value, m2: $('msg2').value || undefined, s2: $('mode2').value };
@@ -743,7 +776,8 @@ function applyHash(h) {  // live: from hub postMessage or hashchange
   var before = cfgKey();
   mergeCfg(c);
   if (c.bg) { bg.setVariant(S.bg); } if (c.pal) applyPal(PAL);
-  if (c.lanes === false) W.lanes = null;
+  if (c.lanes === false) { W.lanes = null; LPL = null; }
+  if (c.ln && lanesPanel) lanesPanel.setValues(LV);
   syncUI(); pushBgToggles(); if (c.cseed != null && typeof bg.setSeed === 'function') bg.setSeed(S.bgSeed);
   bg.update(run.t); bgTex.needsUpdate = true;
   if (before !== cfgKey()) { build(S.text); replay(); } else if (reduced) requestStatic();
@@ -802,6 +836,7 @@ if (HAS_POINTER_API && !reduced) {
 }
 
 build(S.text);
+if (window.LanesPanel && $('lanes-panel')) lanesPanel = window.LanesPanel.mount($('lanes-panel'), { values: { R: W.rows, C: W.cols, seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P }, onChange: onLanesChange, player: lpProxy });
 play();
 window.__card = {
   S: S, K: K, W: W, run: run, atlas: atlas, bg: bg, stats: rawStats, renderer: renderer, uniforms: cubeU,

@@ -70,9 +70,23 @@
     NUMS.forEach(function (k) { var v = o[k.k], n = +v; if (v != null && typeof v === 'number' && isFinite(n)) out[k.k] = Math.round(Math.max(k.lo, Math.min(k.hi, n)) * 1000) / 1000; });
     if (o.cseed != null && typeof o.cseed !== 'object') { var cs = clampInt(o.cseed, 0, 999999999); if (cs !== null) out.cseed = cs; }
     BOOLS.forEach(function (k) { if (typeof o[k] === 'boolean') out[k] = o[k]; else if (o[k] === 0 || o[k] === 1) out[k] = !!o[k]; });
+    var ln = validateLanes(o.ln);
+    if (ln) out.ln = ln;
     var mp = validateMotionPhases(o.mp);
     if (mp) out.mp = mp;
     return out;
+  }
+  /* 'ln' = sliding-rows VISIBLE params only, non-default only (hidden engine params are never serialized): {seed,T,K,GAP_P}. Omitted when all default. */
+  var LN = [{ k: 'seed', lo: 0, hi: 9999, d: 7, int: true }, { k: 'T', lo: 2, hi: 20, d: 5.5 }, { k: 'K', lo: 1, hi: 12, d: 5, int: true }, { k: 'GAP_P', lo: 0, hi: 0.2, d: 0.15 }];
+  function validateLanes(o) {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return undefined;
+    var out = {};
+    LN.forEach(function (f) {
+      var v = o[f.k]; if (typeof v !== 'number' || !isFinite(v)) return;
+      v = Math.max(f.lo, Math.min(f.hi, v)); v = f.int ? Math.round(v) : Math.round(v * 1000) / 1000;
+      if (v !== f.d) out[f.k] = v;
+    });
+    return Object.keys(out).length ? out : undefined;
   }
   /* 'mp' = array of motion-phase tag strings. Omitted (undefined) when absent, empty, or MotionPhases unavailable. */
   function validateMotionPhases(list) {
@@ -183,7 +197,7 @@
   }
 
   /* every key validate() can emit; derived so it cannot drift from BOOLS/NUMS */
-  var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS);
+  var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS, ['ln']);
 
   return { KEYS: KEYS, BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2, MAX_FRAGMENT: MAX_FRAGMENT,
     parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, buildShareUrl: buildShareUrl, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
