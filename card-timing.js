@@ -81,10 +81,9 @@
    *     hasSecondary (false = behave as mode off), reduced}
    * Returns {phase, slideT (0..1 linear, 0 unless tight), secondaryT (0..1), bevel (1 -> 0 while the cubes fade), cubesT (0..1)}. */
   var PHASES = ['resolving', 'locked', 'cubesFading', 'sliding', 'secondary', 'done'];
-  var TL = { lockedHoldMs: 100, cubesFadeMs: 700, slideMs: 1000, secondaryDelayMs: 150, secondaryMs: 1200, blankFadeMs: 250, fadeGapMs: 80 };
+  var TL = { lockedHoldMs: 100, cubesFadeMs: 700, slideMs: 1000, secondaryDelayMs: 150, secondaryMs: 1200 };
   function fin(x, d) { return (typeof x === 'number' && isFinite(x)) ? x : d; }
   function c01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
-  function smooth(x) { x = c01(x); return x * x * (3 - 2 * x); }
   function timeline(o) {
     o = o || {};
     var tight = !!o.tight, mode = (o.mode === 'fade' || o.mode === 'decode') ? o.mode : 'off';
@@ -92,8 +91,8 @@
     var hold = Math.max(0, fin(o.lockedHoldMs, TL.lockedHoldMs)), fadeMs = Math.max(0, fin(o.cubesFadeMs, TL.cubesFadeMs));
     var slideMs = Math.max(0, fin(o.slideMs, TL.slideMs)), dly = Math.max(0, fin(o.secondaryDelayMs, TL.secondaryDelayMs));
     var secMs = Math.max(0, fin(o.secondaryMs, TL.secondaryMs));
-    if (o.reduced) return { phase: 'done', slideT: tight ? 1 : 0, secondaryT: mode !== 'off' ? 1 : 0, bevel: 0, cubesT: 1, blankBevel: 0, messageBevel: 0 };
-    var r = { phase: 'resolving', slideT: 0, secondaryT: 0, bevel: 1, cubesT: 0, blankBevel: 1, messageBevel: 1 };
+    if (o.reduced) return { phase: 'done', slideT: tight ? 1 : 0, secondaryT: mode !== 'off' ? 1 : 0, bevel: 0, cubesT: 1 };
+    var r = { phase: 'resolving', slideT: 0, secondaryT: 0, bevel: 1, cubesT: 0 };
     var t = fin(o.t, 0), lk = o.lockedAt;
     if (typeof lk !== 'number' || !isFinite(lk) || t < lk) return r;
     /* secondaryEarly: the secondary message starts right when the primary resolves (lockedAt + delay), in parallel with the cube fade and slide,
@@ -102,10 +101,8 @@
     if (early) r.secondaryT = secMs > 0 ? c01((t - (lk + dly)) / secMs) : (t >= lk + dly ? 1 : 0);
     var fs = lk + hold, fe = Math.max(fs + fadeMs, fin(o.settledAt, 0));
     if (t < fs) { r.phase = 'locked'; return r; }
-    if (t < fe) { r.phase = 'cubesFading'; r.cubesT = c01((t - fs) / (fe - fs)); r.bevel = 1 - r.cubesT * r.cubesT * (3 - 2 * r.cubesT);
-      var span = fe - fs, bd = Math.min(Math.max(0, fin(o.blankFadeMs, TL.blankFadeMs)), span / 3), gp = Math.min(Math.max(0, fin(o.fadeGapMs, TL.fadeGapMs)), span / 3);
-      r.blankBevel = 1 - smooth(bd > 0 ? (t - fs) / bd : 1); r.messageBevel = 1 - smooth((t - fs - bd - gp) / (span - bd - gp)); return r; }
-    r.cubesT = 1; r.bevel = 0; r.blankBevel = 0; r.messageBevel = 0;
+    if (t < fe) { r.phase = 'cubesFading'; r.cubesT = c01((t - fs) / (fe - fs)); r.bevel = 1 - r.cubesT * r.cubesT * (3 - 2 * r.cubesT); return r; }
+    r.cubesT = 1; r.bevel = 0;
     var se = fe + (tight ? slideMs : 0);
     if (tight && t < se) { r.phase = 'sliding'; r.slideT = c01((t - fe) / slideMs); return r; }
     r.slideT = tight ? 1 : 0;

@@ -6,11 +6,10 @@
   else root.CardShare = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var MP = typeof module === 'object' && module.exports ? require('./motion-phases.js') : (typeof MotionPhases !== 'undefined' ? MotionPhases : null);
   var BGS = ['die', 'pcb', 'veins', 'magitech'];
   var S2 = ['off', 'fade', 'decode'], LAYS = ['grid', 'tight'];
   var MAX_TOKEN = 6000, MAX_HASH = 6200, MAX_JSON = 4500, MAX_FRAGMENT = 1800;
-  var MAX_MSG = 160, MAX_LINES = 3, MAX_MSG2 = 400, MAX_LINES2 = 8;
+  var MAX_MSG = 160, MAX_LINES = 3, MAX_MSG2 = 120, MAX_LINES2 = 2;
   var BOOLS = ['letters', 'cubes', 'linked', 'lanes', 'sweep', 'hide', 'crawl', 'blur', 'runes', 'cpulse', 'pvar'];
   /* seed = simulation (glyph cascade) seed; cseed = circuit layout seed. spd/crawlK/blurPx: clamped numbers, 3 decimals. */
   var NUMS = [{ k: 'spd', lo: 0.05, hi: 2 }, { k: 'crawlK', lo: 0.001, hi: 1 }, { k: 'blurPx', lo: 0, hi: 6 }];
@@ -70,36 +69,7 @@
     NUMS.forEach(function (k) { var v = o[k.k], n = +v; if (v != null && typeof v === 'number' && isFinite(n)) out[k.k] = Math.round(Math.max(k.lo, Math.min(k.hi, n)) * 1000) / 1000; });
     if (o.cseed != null && typeof o.cseed !== 'object') { var cs = clampInt(o.cseed, 0, 999999999); if (cs !== null) out.cseed = cs; }
     BOOLS.forEach(function (k) { if (typeof o[k] === 'boolean') out[k] = o[k]; else if (o[k] === 0 || o[k] === 1) out[k] = !!o[k]; });
-    var ln = validateLanes(o.ln);
-    if (ln) out.ln = ln;
-    var mp = validateMotionPhases(o.mp);
-    if (mp) out.mp = mp;
     return out;
-  }
-  /* 'ln' = sliding-rows VISIBLE params only, non-default only (hidden engine params are never serialized): {seed,T,K,GAP_P}. Omitted when all default. */
-  var LN = [{ k: 'seed', lo: 0, hi: 9999, d: 7, int: true }, { k: 'T', lo: 2, hi: 20, d: 5.5 }, { k: 'K', lo: 1, hi: 12, d: 5, int: true }, { k: 'GAP_P', lo: 0, hi: 0.2, d: 0.15 }];
-  function validateLanes(o) {
-    if (!o || typeof o !== 'object' || Array.isArray(o)) return undefined;
-    var out = {};
-    LN.forEach(function (f) {
-      var v = o[f.k]; if (typeof v !== 'number' || !isFinite(v)) return;
-      v = Math.max(f.lo, Math.min(f.hi, v)); v = f.int ? Math.round(v) : Math.round(v * 1000) / 1000;
-      if (v !== f.d) out[f.k] = v;
-    });
-    /* layout/playback extras: R rows, C cols (no fixed default: present only when overridden), loop (true only), hold seconds (default 2) */
-    [{ k: 'R', lo: 1, hi: 8 }, { k: 'C', lo: 3, hi: 30 }].forEach(function (f) {
-      var v = o[f.k]; if (typeof v === 'number' && isFinite(v)) out[f.k] = Math.round(Math.max(f.lo, Math.min(f.hi, v)));
-    });
-    if (o.loop === true) out.loop = true;
-    if (typeof o.hold === 'number' && isFinite(o.hold)) { var h = Math.round(Math.max(0, Math.min(10, o.hold)) * 100) / 100; if (h !== 2) out.hold = h; }
-    return Object.keys(out).length ? out : undefined;
-  }
-  /* 'mp' = array of motion-phase tag strings. Omitted (undefined) when absent, empty, or MotionPhases unavailable. */
-  function validateMotionPhases(list) {
-    if (!MP || !Array.isArray(list)) return undefined;
-    var tags = list.filter(function (t) { return typeof t === 'string'; });
-    var out = MP.normalize(tags);
-    return out.length ? out : undefined;
   }
 
   /* ---- UTF-8 <-> base64url ---- */
@@ -193,19 +163,7 @@
   }
   function coverFor(w, h) { var a = w / h; return { x: a > 1 ? 1 : a, y: a > 1 ? 1 / a : 1 }; }
 
-  /* Pure: values JSON -> {url, tooLong}. Validates and encodes; opts {baseUrl, anchor, hide}. tooLong when url > 2000 chars. */
-  function buildShareUrl(values, opts) {
-    opts = opts || {};
-    var cfg = validate(values); if (opts.hide) cfg.hide = true;
-    var base = String(opts.baseUrl || '').split(/[?#]/)[0];
-    var url = base + (opts.anchor ? '#c=' : '?c=') + encodeConfig(cfg).slice(2);
-    return { url: url, tooLong: url.length > 2000 };
-  }
-
-  /* every key validate() can emit; derived so it cannot drift from BOOLS/NUMS */
-  var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS, ['ln']);
-
-  return { KEYS: KEYS, BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2, MAX_FRAGMENT: MAX_FRAGMENT,
-    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, buildShareUrl: buildShareUrl, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
+  return { BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2, MAX_FRAGMENT: MAX_FRAGMENT,
+    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
     parseHash: parseHash, buildHash: buildHash, pointerToUV: pointerToUV, coverFor: coverFor };
 });

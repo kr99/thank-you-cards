@@ -1,7 +1,7 @@
 /* Presets for this card. "hide": true starts with the controls hidden (press c to show them). */
 window.CARD_CONFIG = {
-  "m": "YOUR MESSAGE HERE",
-  "m2": "(placeholder: open settings to edit)",
+  "m": "THANK YOU,\nKimber!",
+  "m2": "I really appreciated the time and thoughtful interview questions, and look forward to hearing from you again😊",
   "s2": "decode",
   "lay": "tight",
   "bg": "pcb",

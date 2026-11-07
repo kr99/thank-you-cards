@@ -1,0 +1,25 @@
+/* Presets for this card. "hide": true starts with the controls hidden (press c to show them). */
+window.CARD_CONFIG = {
+  "m": "YOUR MESSAGE HERE",
+  "m2": "(placeholder: open settings to edit)",
+  "s2": "decode",
+  "lay": "tight",
+  "bg": "pcb",
+  "pal": "tron",
+  "seed": 11,
+  "spd": 0.65,
+  "crawlK": 0.03,
+  "blurPx": 2.7,
+  "cseed": 906537,
+  "letters": true,
+  "cubes": false,
+  "linked": true,
+  "lanes": true,
+  "sweep": true,
+  "crawl": true,
+  "blur": true,
+  "runes": false,
+  "cpulse": true,
+  "pvar": true,
+  "hide": true
+};

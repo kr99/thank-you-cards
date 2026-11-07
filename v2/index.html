@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thank You Card</title>
+<!--
+  glass-card.html  --  integration page. Written for this project (no third-party code copied).
+  three.js r149 (MIT, https://github.com/mrdoob/three.js) from jsDelivr, pinned.
+  Local modules: glyph-engine.js, circuit-bg.js, slide-lanes.js (all original, see refs/*.md).
+  Fonts: Google Fonts CSS only (UI fonts + the glyph engine's OFL fonts).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="controls.css">
+<style>
+:root {
+  --bg: #070a10; --panel: #0e131c; --line: #243040; --fg: #e8eef6; --muted: #93a1b4;
+  --accent: #6ee7d8; --accent-ink: #04201c;
+  --display: "Chakra Petch", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 20px 16px 40px; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font: 600 13px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#stage { --ar: 1.75; position: relative; width: min(100%, calc(72vh * var(--ar))); aspect-ratio: var(--ar); margin: 0 auto;
+  background: #05070b; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .18s linear; }
+#stage.fading canvas { opacity: 0; }
+#status { margin: 0; text-align: center; color: var(--muted); font-size: 13px; min-height: 1.5em; }
+#sec { position: absolute; left: 0; right: 0; bottom: 0; perspective: 700px; pointer-events: none; color: #e8eef6; font: 500 14px var(--body); overflow: hidden; }
+#sec[hidden] { display: none; }
+#sec .ln { position: absolute; left: 0; right: 0; }
+#sec .ch { position: absolute; top: 0; white-space: pre; line-height: 1.25; transform-origin: 50% 50%; will-change: transform, opacity; text-shadow: 0 0 12px rgba(110,231,216,.25); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.clean h1, body.clean #status { display: none; }
+body.clean main { padding-block: 0; min-height: 100vh; align-content: center; }
+body.clean #stage { width: min(100%, calc(100vh * var(--ar))); border-radius: 0; }
+#cleanbar { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; gap: 8px; }
+#cleanbar button { min-height: 32px; padding: 4px 10px; font-size: 12px; opacity: .35; }
+#cleanbar button:hover, #cleanbar button:focus-visible { opacity: 1; }
+body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
+#stage canvas { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) { #stage canvas { transition-duration: .2s; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Thank-you card cover</h1>
+  <div id="stage" role="img" aria-label="Glass cubes spelling the message"><canvas id="gl"></canvas><div id="sec" hidden></div></div>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section id="controls" aria-label="Card controls">
+  <form class="ctrl" id="ctrl" autocomplete="off">
+    <fieldset data-group="message">
+      <legend>Message</legend>
+      <div class="row">
+        <button type="button" id="replay" class="primary">Replay</button>
+        <div class="msg">
+          <label class="lbl" for="msg">Message (up to 3 lines, Enter adds a line)</label>
+          <textarea id="msg" rows="3" maxlength="260" spellcheck="false" autocapitalize="off">YOUR MESSAGE HERE</textarea>
+          <p class="cnt" id="msgcnt" aria-live="polite"></p>
+          <p class="warn" id="msgnote" hidden></p>
+          <p class="warn" id="emonote" hidden></p>
+        </div>
+        <button type="submit" id="setmsg">Set message</button>
+      </div>
+      <div class="row">
+        <div class="msg small">
+          <label class="lbl" for="msg2">Secondary message (long notes shrink to fit, optional)</label>
+          <textarea id="msg2" rows="2" maxlength="1200" spellcheck="false" autocapitalize="off"></textarea>
+          <p class="cnt" id="msg2cnt" aria-live="polite"></p>
+        </div>
+        <div>
+          <label class="lbl" for="mode2">Secondary effect</label>
+          <select id="mode2"><option value="off" selected>Off</option><option value="fade">Fade</option><option value="decode">Decode</option></select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset data-group="look">
+      <legend>Look</legend>
+      <div class="row">
+        <div>
+          <span class="lbl">Background</span>
+          <div class="seg" role="radiogroup" aria-label="Background">
+          <label id="bgopt-magitech"><input type="radio" name="bg" id="bg-magitech" value="magitech"><span>Magitech</span></label>
+          <label><input type="radio" name="bg" id="bg-die" value="die" checked><span>Die</span></label>
+          <label><input type="radio" name="bg" id="bg-pcb" value="pcb"><span>PCB</span></label>
+          <label><input type="radio" name="bg" id="bg-veins" value="veins"><span>Veins</span></label>
+        </div>
+        </div>
+        <div id="palwrap" hidden>
+          <label class="lbl" for="pal">Palette</label>
+          <select id="pal"></select>
+        </div>
+      </div>
+      <div class="feat">
+        <button type="button" class="sw" id="t-tight" role="switch" aria-checked="true"><span class="dot"></span>Tight spacing</button>
+        <span class="pair"><button type="button" class="sw" id="t-letters" role="switch" aria-checked="true"><span class="dot"></span>Letters rotate</button>
+        <button type="button" class="chain" id="t-link" aria-pressed="true" aria-label="Link letter and cube rotation" title="Link letter and cube rotation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g class="whole"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></g>
+            <g class="broken"><path d="M9.5 14.5l-1 1a4.5 4.5 0 0 1-6.4-6.4l3-3a4.5 4.5 0 0 1 6.4 0"/><path d="M14.5 9.5l1-1a4.5 4.5 0 0 1 6.4 6.4l-3 3a4.5 4.5 0 0 1-6.4 0"/><path d="M12 3v2M12 19v2M3 12h0" opacity="0"/><path d="M8 4l1.2 2.2M16 20l-1.2-2.2"/></g>
+          </svg>
+        </button></span>
+        <button type="button" class="sw" id="t-cubes" role="switch" aria-checked="false"><span class="dot"></span>Cubes rotate</button>
+      </div>
+      <p class="note">The chain only matters when letters and cubes both rotate: linked, they turn together; unlinked, they turn independently in opposite directions.</p>
+    </fieldset>
+
+    <fieldset data-group="motion">
+      <legend>Motion</legend>
+      <div class="cc">
+        <div><label class="lbl" for="spd">Circuit speed <output id="spd-o" for="spd"></output></label><input type="range" id="spd" min="0.05" max="2" step="0.05" value="0.6"></div>
+        <div><button type="button" class="sw" id="t-crawl" role="switch" aria-checked="true"><span class="dot"></span>Crawl after message resolves</button></div>
+        <div><label class="lbl" for="crawlK">Crawl factor (0.001 to 1)</label><input type="number" id="crawlK" min="0.001" max="1" step="any" value="0.01" inputmode="decimal"></div>
+        <div><button type="button" class="sw" id="t-blur" role="switch" aria-checked="true"><span class="dot"></span>Blur circuit after message resolves</button></div>
+        <div><label class="lbl" for="blurPx">Blur amount <output id="blurPx-o" for="blurPx"></output></label><input type="range" id="blurPx" min="0" max="6" step="0.1" value="1.5"></div>
+        <div><button type="button" class="sw" id="t-runes" role="switch" aria-checked="true"><span class="dot"></span>Runes</button></div>
+        <div><button type="button" class="sw" id="t-cpulse" role="switch" aria-checked="true"><span class="dot"></span>Click and hover pulses</button></div>
+        <div><button type="button" class="sw" id="t-pvar" role="switch" aria-checked="true"><span class="dot"></span>Pulse variation</button></div>
+        <div><button type="button" class="sw" id="t-lanes" role="switch" aria-checked="false"><span class="dot"></span>Sliding lanes</button></div>
+        <div><button type="button" class="sw" id="t-sweep" role="switch" aria-checked="true"><span class="dot"></span>Light sweep</button></div>
+        <div><label class="lbl" for="cseed">Circuit seed (number or any text)</label>
+          <div class="row"><input type="text" id="cseed" value="7" inputmode="numeric" autocomplete="off" spellcheck="false">
+          <button type="button" id="reseed"><svg class="die" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg>Randomize</button></div></div>
+      </div>
+      <div id="motionpicklist"></div>
+      <p class="note" id="ccnote" hidden></p>
+    </fieldset>
+
+    <fieldset data-group="share">
+      <legend>Share</legend>
+      <div class="row">
+        <button type="button" id="hidectl">Hide controls</button>
+        <button type="button" id="copylink">Copy JSON settings</button>
+        <button type="button" id="copyqlink">Copy share link</button>
+        <label class="chk"><input type="checkbox" id="qanchor"> use #anchor, not ?query</label>
+        <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
+      </div>
+      <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
+      <p class="warn" id="linkwarn" hidden></p>
+      <p class="note" id="linknote" hidden>Paste this JSON to Claude to build a new card with these settings preset. Press c to toggle controls.</p>
+      <p id="debug" hidden></p>
+    </fieldset>
+  </form>
+  </section>
+</main>
+<aside id="sidepanel" aria-label="Feature settings"><div id="lanes-panel"></div></aside>
+<div id="cleanbar"><button type="button" id="replayfloat" aria-label="Replay">Replay</button><button type="button" id="showctl" aria-label="Show controls">Show controls</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="config.js"></script>
+<script src="glyph-engine.js"></script>
+<script src="circuit-bg.js"></script>
+<script src="slide-lanes.js"></script>
+<script src="plan-lanes.js"></script>
+<script src="card-text.js"></script>
+<script src="card-fit.js"></script>
+<script src="text-layer.js"></script>
+<script src="bg-layer.js"></script>
+<script src="card-timing.js"></script>
+<script src="motion-phases.js"></script>
+<script src="motion-picklist.js"></script>
+<script src="card-share.js"></script>
+<script src="card-values.js"></script>
+<script src="lanes4.js"></script>
+<script src="lanes-frame4.js"></script>
+<script src="lanes-player.js"></script>
+<script src="lanes-panel.js"></script>
+<script src="side-panel.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
