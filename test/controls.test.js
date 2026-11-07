@@ -5,7 +5,7 @@ const assert = require('node:assert');
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const html = read('index.html'), js = read('app.js');
-const EXEMPT = new Set(['stage', 'gl', 'sec', 'status', 'ctrl', 'showctl', 'replayfloat']); // stage + clean-mode bar
+const EXEMPT = new Set(['stage', 'gl', 'sec', 'status', 'ctrl', 'showctl', 'replayfloat', 'sidepanel', 'lanes-panel']); // stage + clean-mode bar
 const sec = (html.match(/<section id="controls"[\s\S]*?<\/section>/) || [''])[0];
 const groups = [...sec.matchAll(/<fieldset data-group="([\w-]+)"[^>]*>([\s\S]*?)<\/fieldset>/g)];
 const grouped = groups.map(g => g[2]).join('\n');

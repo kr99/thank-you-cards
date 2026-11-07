@@ -121,3 +121,13 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
 .lp-scrub input { width: 100%; }
 .lp-marks { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; pointer-events: none; }
 .lp-tick { position: absolute; width: 1px; height: 8px; background: var(--muted); }
+
+/* ---- side panel (side-panel.js): right drawer for feature settings ---- */
+.sp { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; z-index: 6; transform: translateX(100%); transition: transform .2s; background: var(--panel); border-left: 1px solid var(--line); color: var(--fg); }
+.sp.sp-open { transform: none; }
+.sp-tab { position: absolute; top: 12px; right: 100%; font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-right: 0; border-radius: 6px 0 0 6px; min-height: 36px; padding: 6px 10px; cursor: pointer; }
+.sp-body { height: 100%; overflow-y: auto; padding: 12px; box-sizing: border-box; }
+.sp-sec { border-bottom: 1px solid var(--line); padding: 4px 0; }
+.sp-sec > summary { cursor: pointer; font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 8px 0; }
+body.clean .sp { display: none; }
+@media (max-width: 700px) { .sp { width: 100%; } .sp.sp-open .sp-tab { right: 0; border-radius: 0 0 0 6px; border-right: 1px solid var(--line); } }

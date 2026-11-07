@@ -837,6 +837,7 @@ if (HAS_POINTER_API && !reduced) {
 
 build(S.text);
 if (window.LanesPanel && $('lanes-panel')) lanesPanel = window.LanesPanel.mount($('lanes-panel'), { values: { R: W.rows, C: W.cols, seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P }, onChange: onLanesChange, player: lpProxy });
+if (window.SidePanel && $('sidepanel')) window.SidePanel.mount($('sidepanel')).addSection('sp-lanes', 'Sliding rows', $('lanes-panel'), { open: true });
 play();
 window.__card = {
   S: S, K: K, W: W, run: run, atlas: atlas, bg: bg, stats: rawStats, renderer: renderer, uniforms: cubeU,
