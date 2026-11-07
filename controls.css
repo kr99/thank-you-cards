@@ -103,3 +103,21 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
   .mp-moves .mp-btn { flex: 1 1 0; }
   .mp-num { width: 100%; max-width: 6.5em; }
 }
+
+/* ---- sliding rows panel (lanes-panel.js) ---- */
+.lp { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; color: var(--fg); }
+.lp > summary, .lp-group > summary { cursor: pointer; font: 600 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 6px 0; }
+.lp-group { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px; }
+.lp-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 6px 0; }
+.lp-n { font: 500 14px var(--body); }
+.lp-n small { display: block; color: var(--muted); font-size: 12px; }
+.lp-ctl { display: flex; gap: 8px; align-items: center; }
+.lp input[type=range] { accent-color: var(--accent); min-height: 32px; }
+.lp input[type=number] { width: 4.5em; font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.lp button { font: 500 14px var(--body); color: var(--fg); background: #131b27; border: 1px solid var(--line); border-radius: 5px; min-height: 36px; padding: 6px 12px; cursor: pointer; }
+.lp button:hover { border-color: #3a4d66; }
+.lp output { min-width: 3em; color: var(--muted); font: 500 13px var(--body); }
+.lp-scrub { position: relative; padding-bottom: 10px; }
+.lp-scrub input { width: 100%; }
+.lp-marks { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; pointer-events: none; }
+.lp-tick { position: absolute; width: 1px; height: 8px; background: var(--muted); }
