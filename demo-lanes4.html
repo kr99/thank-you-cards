@@ -1,0 +1,118 @@
+<!doctype html>
+<meta charset="utf-8"><title>lanes4 demo</title>
+<style>
+body{background:#101216;color:#d8dde6;font:14px system-ui,sans-serif;margin:12px}
+#cv{display:flex;gap:12px;flex-wrap:wrap}canvas{background:#181b22;border-radius:8px;max-width:100%}
+#ctl{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;margin:10px 0}
+small{display:block;color:#7b8394;font-size:11px}label{display:flex;align-items:center;gap:6px}label input[type=range]{flex:1}output{min-width:44px;text-align:right;color:#8cf}
+#bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0}
+#st{font:13px monospace;color:#fc8;min-height:2.6em;white-space:pre}
+button,select,input[type=number]{background:#252a35;color:#d8dde6;border:1px solid #444;border-radius:4px;padding:3px 8px}
+</style>
+<div id="bar">
+ <button id="play">Pause</button><label><input type="checkbox" id="loop" checked>Loop</label>
+ <label>speed<select id="speed"><option>0.25<option>0.5<option selected>1<option>1.5<option>2</select>x</label>
+ <label style="flex:1;min-width:240px">t<input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><output id="tout"></output></label>
+ <label><input type="checkbox" id="cmp">Compare (fresh | rigid)</label>
+ <button id="reset">Reset to defaults</button>
+</div>
+<div id="st"></div>
+<div id="cv"></div>
+<div id="ctl"></div>
+<script src="./lanes4.js"></script>
+<script>
+var D = Lanes4.LANES4_DEFAULTS;
+var SPEC = [ // [key, min, max, step, default, isParam, label, help]
+ ['R',1,8,1,3,0,'Rows','Grid height in cubes'],['C',3,30,1,14,0,'Columns','Grid width in cubes'],
+ ['seed',0,9999,1,7,0,'Random seed','Same seed + settings = same animation'],
+ ['T',2,20,0.5,D.T,0,'Total time (s)','Length of the whole shuffle, ending at the letter lock'],
+ ['K',1,12,1,D.K,1,'Number of shifts (rows, cols, rows...)','Each shift slides every row, then every column, alternating; more shifts = shorter, faster slides'],
+ ['GAP_P',0,0.5,0.01,D.GAP_P,1,'Gap chance per cell (0.15 = 15%)','Chance any cell is empty in a start/end layout'],
+ ['LAMBDA',0,1,0.05,D.LAMBDA,1,'Row/col similarity','0 = each lane scales by its own length; 1 = rows and columns move the same distance'],
+ ['CAP_ROW',0,3,0.1,D.CAP_ROW,1,'Max shift: rows (x lane length)','Largest row slide as a multiple of row length'],
+ ['CAP_COL',0,3,0.1,D.CAP_COL,1,'Max shift: columns (x lane length)','Above 1 = a column can be fully replaced'],
+ ['W_LO',0.1,2,0.05,D.W_LO,1,'Lane speed variety: min multiplier','Slowest lane scale vs average'],
+ ['W_HI',0.5,5,0.05,D.W_HI,1,'Lane speed variety: max multiplier','Fastest lane scale vs average'],
+ ['Q_FULL',0,1,0.01,D.Q_FULL,1,'Chance of a full-lane replace','Per lane per shift: the whole lane slides out and a new one slides in']];
+var V = {}, ctl = document.getElementById('ctl'), pairing = D.PAIRING;
+SPEC.forEach(function (s) {
+  var l = document.createElement('label'), o = document.createElement('output'), i = document.createElement('input');
+  i.type = 'range'; i.min = s[1]; i.max = s[2]; i.step = s[3]; i.id = 'p_' + s[0]; l.title = s[7];
+  i.oninput = function () { V[s[0]] = +i.value; o.textContent = i.value; build(); };
+  var n = document.createElement('div'); n.innerHTML = s[6] + '<small>' + s[7] + '</small>'; n.style.width = '55%';
+  l.append(n, i, o); ctl.append(l); s.i = i; s.o = o;
+  if (s[0] === 'seed') { var b = document.createElement('button'); b.textContent = 'Reroll'; b.onclick = function () { i.value = Math.floor(Math.random() * 10000); i.oninput(); }; l.append(b); }
+});
+var pl = document.createElement('label'), ps = document.createElement('select');
+['rigid', 'fresh'].forEach(function (v) { ps.add(new Option(v)); });
+ps.onchange = function () { pairing = ps.value; build(); }; pl.title = 'rigid: lane slides as a block; fresh: cubes reshuffle'; pl.append('Gap style ', ps, ' rigid = lane slides as a block, fresh = cubes reshuffle'); ctl.append(pl);
+
+function setDefaults() {
+  SPEC.forEach(function (s) { s.i.value = s[4]; s.o.textContent = s[4]; V[s[0]] = s[4]; });
+  pairing = ps.value = D.PAIRING; build();
+}
+var plans = [], cvs = [], t = 0, playing = true, last = performance.now();
+function mk(pair) {
+  var p = {}; SPEC.forEach(function (s) { if (s[5]) p[s[0]] = V[s[0]]; }); p.PAIRING = pair;
+  return Lanes4.planLanes4({ R: V.R, C: V.C, T: V.T, seed: V.seed, params: p });
+}
+function build() {
+  var cmp = document.getElementById('cmp').checked, pairs = cmp ? ['fresh', 'rigid'] : [pairing];
+  plans = pairs.map(mk);
+  var host = document.getElementById('cv'); host.innerHTML = ''; cvs = [];
+  pairs.forEach(function (pr) {
+    var w = document.createElement('div'), h = document.createElement('div'), c = document.createElement('canvas');
+    h.textContent = pr; c.width = Math.min(1100, V.C * 40 + 20) * (cmp ? 0.9 : 1) | 0; c.height = V.R * 40 + 20;
+    w.append(h, c); host.append(w); cvs.push(c);
+  });
+  document.getElementById('scrub').max = V.T;
+}
+var TXT = 'THANK YOU ';
+function draw(plan, c) {
+  var g = c.getContext('2d'), cell = Math.min((c.width - 20) / plan.C, (c.height - 20) / plan.R), ox = (c.width - cell * plan.C) / 2, oy = (c.height - cell * plan.R) / 2;
+  g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = '#2c3140'; g.strokeRect(ox, oy, cell * plan.C, cell * plan.R);
+  var cs = Lanes4.sampleLanes4(plan, t), pad = cell * 0.06;
+  g.save(); g.beginPath(); g.rect(ox, oy, cell * plan.C, cell * plan.R); g.clip();
+  cs.forEach(function (q) {
+    var x = ox + (q.x - 0.5 + 0.5) * cell, y = oy + (q.y) * cell; x = ox + q.x * cell; y = oy + q.y * cell;
+    g.fillStyle = q.stopped ? '#2a4a7a' : '#3a6fb0'; g.beginPath();
+    g.roundRect(x + pad, y + pad, cell - 2 * pad, cell - 2 * pad, cell * 0.18); g.fill();
+    if (q.stopped) {
+      g.fillStyle = '#fff'; g.font = 'bold ' + (cell * 0.55 | 0) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(TXT[(Math.round(q.y) * plan.C + Math.round(q.x)) % TXT.length], x + cell / 2, y + cell / 2 + 1);
+    }
+  });
+  g.restore();
+}
+function status() {
+  var p = plans[0], k = Math.min(p.K - 1, Math.floor(t / p.D)), row = p.steps[k].axis === 'row', pre = row ? 'R' : 'C';
+  var line = function (pl) {
+    return pl.steps[k].lanes.map(function (l) {
+      var w = l.s === 0 ? '(still)' : row ? (l.s > 0 ? '(right)' : '(left)') : (l.s > 0 ? '(down)' : '(up)');
+      return pre + l.index + ' ' + (l.s > 0 ? '+' : '') + l.s + ' ' + w;
+    }).join(', ');
+  };
+  document.getElementById('st').textContent = 'Shift ' + (k + 1) + ' of ' + p.K + ': ' + (row ? 'rows' : 'columns') +
+    (plans.length > 1 ? '
+fresh | lane shifts: ' + line(plans[0]) + '
+rigid | lane shifts: ' + line(plans[1]) : ' | lane shifts: ' + line(p));
+}
+var sc = document.getElementById('scrub');
+function frame(now) {
+  var dt = (now - last) / 1000; last = now;
+  if (playing) {
+    t += dt * +document.getElementById('speed').value;
+    if (t >= V.T) { if (document.getElementById('loop').checked) t = 0; else { t = V.T; playing = false; document.getElementById('play').textContent = 'Play'; } }
+    sc.value = t;
+  }
+  document.getElementById('tout').textContent = t.toFixed(2) + 's';
+  plans.forEach(function (p, i) { draw(p, cvs[i]); }); status();
+  requestAnimationFrame(frame);
+}
+sc.oninput = function () { t = +sc.value; };
+document.getElementById('play').onclick = function () { playing = !playing; this.textContent = playing ? 'Pause' : 'Play'; if (playing && t >= V.T) t = 0; };
+document.getElementById('cmp').onchange = build;
+document.getElementById('reset').onclick = setDefaults;
+setDefaults(); requestAnimationFrame(frame);
+</script>
