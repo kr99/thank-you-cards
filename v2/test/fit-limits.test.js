@@ -11,10 +11,10 @@ test('m2 limits only go up (was 120 chars / 2 lines) and stay within the URL bud
   assert.ok(CS.MAX_LINES2 > 2);
 });
 
-test('a max-length m2 sanitizes untouched and still fits the share fragment budget', () => {
+test('a max-length m2 sanitizes untouched and still fits the share URL budget', () => {
   const text2 = 'word '.repeat(CS.MAX_MSG2).slice(0, CS.MAX_MSG2).trim();
   assert.strictEqual(CS.sanitizeInfo(text2, CS.MAX_LINES2, CS.MAX_MSG2).truncated, false);
-  const r = CS.buildFragmentChecked({ m: 'THANK YOU', m2: text2, s2: 'decode', bg: 'pcb', pal: 'tron' }, {});
+  const r = CS.buildShareUrl({ m: 'THANK YOU', m2: text2, s2: 'decode', bg: 'pcb', pal: 'tron' }, { baseUrl: 'http://x/' });
   assert.strictEqual(r.tooLong, false);
 });
 

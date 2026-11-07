@@ -1,6 +1,6 @@
 /*!
  * circuit-bg.js - procedural sci-fi / magitech circuitry backgrounds (2D canvas, no deps).
- * Variants: 'pcb' | 'veins' | 'die' | 'magitech' (octilinear root-like bundles that peel off lanes and taper, pad/via/rune tips, hidden back-layer links between ICs, multi-hop click waves).
+ * Variants: 'pcb' | 'veins' | 'magitech' (octilinear root-like bundles that peel off lanes and taper, pad/via/rune tips, hidden back-layer links between ICs, multi-hop click waves).
  * Original code (written from scratch, MIT). Techniques are standard and inspired by public write-ups only;
  * no third-party code copied. Sources (concepts only):
  *   - shadcn.io "React Circuit Background" (idea: static edge graph + pulses along edges; no code)
@@ -11,7 +11,7 @@
  *   const bg = CircuitBG.create({width:1024,height:1024,variant:'magitech',seed:7,palette:'tron'});
  *   document.body.appendChild(bg.canvas);   // or use bg.canvas as a three.js CanvasTexture
  *   bg.update(timeSeconds);                 // per frame
- *   bg.hoverAt(u,v); bg.pulseAt(u,v); bg.getICs(); bg.setPalette('aurora'); bg.setVariant('die'); bg.setSeed(42);
+ *   bg.hoverAt(u,v); bg.pulseAt(u,v); bg.getICs(); bg.setPalette('aurora'); bg.setVariant('pcb'); bg.setSeed(42);
  *   bg.setSpeed(m) (0..4, accumulated sim time); bg.setRunes(b); bg.setPulseVariance(b); bg.getSeed(); bg.getLinks(); bg.getSimTime();
  * DOM-free logic lives in CircuitBG.pure (see tests/circuit.test.js). The file can be require()d in node.
  */
@@ -47,7 +47,7 @@
     deepsea: { bg: '#030e1c', a: '#0f86e0', b: '#12d9c6', c: '#e2fdff', hot: '#5fe0ff', v: '#6b7bff' },
     aurora:  { bg: '#070a22', a: '#4a7dff', b: '#2ee8e0', c: '#f0f4ff', hot: '#b4a6ff', v: '#c18bff' }
   };
-  var DEFAULTS = { pcb: PALETTES.tron, veins: PALETTES.tron, die: PALETTES.tron, magitech: PALETTES.tron };
+  var DEFAULTS = { pcb: PALETTES.tron, veins: PALETTES.tron, magitech: PALETTES.tron };
 
   function resolvePalette(p) {
     var base = PALETTES.tron, out = {}, k;
@@ -594,157 +594,6 @@
   }
 
   // =====================================================================
-  // DIE
-  // =====================================================================
-  function buildDie(S) {
-    var W = S.W, H = S.H, rng = S.rng, sc = S.sc, dens = S.density;
-    var margin = 46 * sc, gap = 12 * sc, minB = 70 * sc / Math.sqrt(dens);
-    var blocks = [], chans = [];
-    function split(x, y, w, h, depth) {
-      var canH = w > minB * 2 + gap, canV = h > minB * 2 + gap;
-      if ((!canH && !canV) || (depth > 1 && rng() < 0.12)) { blocks.push({ x: x, y: y, w: w, h: h }); return; }
-      var horiz = canH && canV ? w > h * (0.8 + rng() * 0.4) : canH, r = 0.35 + rng() * 0.3;
-      if (horiz) {
-        var w1 = (w - gap) * r;
-        chans.push({ x: x + w1, y: y, w: gap, h: h, v: true });
-        split(x, y, w1, h, depth + 1); split(x + w1 + gap, y, w - w1 - gap, h, depth + 1);
-      } else {
-        var h1 = (h - gap) * r;
-        chans.push({ x: x, y: y + h1, w: w, h: gap, v: false });
-        split(x, y, w, h1, depth + 1); split(x, y + h1 + gap, w, h - h1 - gap, depth + 1);
-      }
-    }
-    split(margin, margin, W - margin * 2, H - margin * 2, 0);
-    var types = ['sram', 'logic', 'logic', 'data', 'analog'], i, k;
-    for (i = 0; i < blocks.length; i++) {
-      var b = blocks[i];
-      b.type = types[(rng() * types.length) | 0]; b.col = (rng() * 3) | 0;
-      b.per = 3 + rng() * 7; b.ph = rng(); b.per2 = 1 + rng() * 2; b.sweep = 0.1 + rng() * 0.25;
-      b.hot = []; var nh = rng() < 0.6 ? 1 + ((rng() * 2) | 0) : 0;
-      for (k = 0; k < nh; k++) b.hot.push({ x: b.x + b.w * (0.15 + rng() * 0.7), y: b.y + b.h * (0.15 + rng() * 0.7), r: (14 + rng() * 22) * sc, per: 1.5 + rng() * 3, ph: rng() });
-    }
-    var ics = blocks.map(function (b, bi) { b.id = bi; return { id: bi, x: b.x, y: b.y, w: b.w, h: b.h, pin: gap }; }), dpads = [];
-    function endOf(pt) {
-      var id = -1, q;
-      for (q = 0; q < ics.length; q++) { var c = ics[q]; if (pt[0] >= c.x - gap && pt[0] <= c.x + c.w + gap && pt[1] >= c.y - gap && pt[1] <= c.y + c.h + gap) { id = q; break; } }
-      dpads.push({ x: pt[0], y: pt[1], kind: 'via' });
-      return { type: 'pad', ic: id, x: pt[0], y: pt[1] };
-    }
-    // bus pulses in channels
-    var paths = [], pulses = [], lanes = 4, pal = [hex(S.pal.a), hex(S.pal.b), hex(S.pal.hot)];
-    for (i = 0; i < chans.length; i++) {
-      var c = chans[i];
-      for (k = 0; k < lanes; k++) {
-        var off = (k + 1) / (lanes + 1), p;
-        if (c.v) p = [[c.x + c.w * off, c.y - gap * 0.5], [c.x + c.w * off, c.y + c.h + gap * 0.5]];
-        else p = [[c.x - gap * 0.5, c.y + c.h * off], [c.x + c.w + gap * 0.5, c.y + c.h * off]];
-        var path = makePath(p, 0, 1.2 * sc); path.id = paths.length; path.next = []; path.a = endOf(p[0]); path.b = endOf(p[1]); paths.push(path);
-        if (rng() < 0.75) pulses.push(makePulse(path, rng, pal[rng() < 0.15 ? 2 : (rng() < 0.5 ? 0 : 1)], sc, { speed: 140, trail: 30, gap: 80, size: 6 }));
-      }
-    }
-    return { blocks: blocks, chans: chans, pulses: pulses, gap: gap, margin: margin, lanes: lanes, ics: ics, traces: paths, netPads: dpads };
-  }
-
-  function drawDieStatic(S, M, ctx) {
-    var sc = S.sc, rng = S.rng2, pal = [hex(S.pal.a), hex(S.pal.b), hex(S.pal.v)], A = pal[0], i, k, j;
-    ctx.fillStyle = S.pal.bg; ctx.fillRect(0, 0, S.W, S.H);
-    // die outline + seal ring
-    ctx.strokeStyle = rgba(A, 0.8); ctx.lineWidth = 2 * sc; ctx.strokeRect(M.margin * 0.45, M.margin * 0.45, S.W - M.margin * 0.9, S.H - M.margin * 0.9);
-    ctx.strokeStyle = rgba(A, 0.35); ctx.lineWidth = 1; ctx.strokeRect(M.margin * 0.62, M.margin * 0.62, S.W - M.margin * 1.24, S.H - M.margin * 1.24);
-    // IO pads
-    var pp = 14 * sc, ps = 7 * sc;
-    ctx.fillStyle = rgba(pal[1], 0.7);
-    for (k = M.margin; k < S.W - M.margin; k += pp) { ctx.fillRect(k, M.margin * 0.1, ps, ps * 1.3); ctx.fillRect(k, S.H - M.margin * 0.1 - ps * 1.3, ps, ps * 1.3); }
-    for (k = M.margin; k < S.H - M.margin; k += pp) { ctx.fillRect(M.margin * 0.1, k, ps * 1.3, ps); ctx.fillRect(S.W - M.margin * 0.1 - ps * 1.3, k, ps * 1.3, ps); }
-    // channels: parallel bus lines
-    ctx.lineWidth = 1 * sc;
-    for (i = 0; i < M.chans.length; i++) {
-      var c = M.chans[i];
-      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(c.x, c.y, c.w, c.h);
-      ctx.strokeStyle = rgba(pal[1], 0.55); ctx.beginPath();
-      for (k = 0; k < M.lanes; k++) {
-        var off = (k + 1) / (M.lanes + 1);
-        if (c.v) { ctx.moveTo(c.x + c.w * off, c.y - M.gap * 0.5); ctx.lineTo(c.x + c.w * off, c.y + c.h + M.gap * 0.5); }
-        else { ctx.moveTo(c.x - M.gap * 0.5, c.y + c.h * off); ctx.lineTo(c.x + c.w + M.gap * 0.5, c.y + c.h * off); }
-      }
-      ctx.stroke();
-    }
-    // blocks
-    for (i = 0; i < M.blocks.length; i++) {
-      var b = M.blocks[i], bc = pal[b.col === 2 ? 2 : b.col];
-      ctx.fillStyle = rgba(mix(bc, [0, 0, 0], 0.9), 1); ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.save(); ctx.beginPath(); ctx.rect(b.x, b.y, b.w, b.h); ctx.clip();
-      if (b.type === 'sram') {
-        var cs = 3 * sc; ctx.beginPath();
-        for (k = b.x; k < b.x + b.w; k += cs) { ctx.moveTo(k + 0.5, b.y); ctx.lineTo(k + 0.5, b.y + b.h); }
-        ctx.strokeStyle = rgba(bc, 0.30); ctx.lineWidth = 1; ctx.stroke(); ctx.beginPath();
-        for (k = b.y; k < b.y + b.h; k += cs * 2) { ctx.moveTo(b.x, k + 0.5); ctx.lineTo(b.x + b.w, k + 0.5); }
-        ctx.strokeStyle = rgba(bc, 0.22); ctx.stroke();
-        ctx.fillStyle = rgba(mix(bc, [255, 255, 255], 0.5), 0.5);
-        for (k = 0; k < b.w * b.h / (cs * cs * 14); k++) ctx.fillRect(b.x + ((rng() * b.w / cs) | 0) * cs, b.y + ((rng() * b.h / (cs * 2)) | 0) * cs * 2, 1.5, 1.5);
-        ctx.strokeStyle = rgba(pal[1], 0.5); ctx.lineWidth = 2 * sc;
-        ctx.beginPath(); ctx.moveTo(b.x, b.y + b.h * 0.5); ctx.lineTo(b.x + b.w, b.y + b.h * 0.5); ctx.stroke();
-      } else if (b.type === 'logic') {
-        var rh = 5 * sc;
-        for (k = b.y + 1; k < b.y + b.h - rh; k += rh) {
-          var x = b.x + 1;
-          while (x < b.x + b.w - 2) {
-            var cwid = (2 + ((rng() * 7) | 0)) * sc;
-            if (rng() < 0.82) { ctx.fillStyle = rgba(mix(bc, pal[1], rng()), 0.25 + rng() * 0.5); ctx.fillRect(x, k, Math.min(cwid, b.x + b.w - x) - 1, rh - 1.5); }
-            x += cwid;
-          }
-        }
-      } else if (b.type === 'data') {
-        var sx = 4 * sc; ctx.beginPath();
-        for (k = b.x; k < b.x + b.w; k += sx) { ctx.moveTo(k, b.y); ctx.lineTo(k, b.y + b.h); }
-        ctx.strokeStyle = rgba(bc, 0.35); ctx.lineWidth = 1.2 * sc; ctx.stroke(); ctx.beginPath();
-        for (k = b.y + 6 * sc; k < b.y + b.h; k += 18 * sc) { ctx.moveTo(b.x, k); ctx.lineTo(b.x + b.w, k); }
-        ctx.strokeStyle = rgba(pal[1], 0.5); ctx.stroke();
-        ctx.fillStyle = rgba(pal[1], 0.7);
-        for (k = b.y + 6 * sc; k < b.y + b.h; k += 18 * sc) for (j = b.x; j < b.x + b.w; j += sx * 4) ctx.fillRect(j - 1, k - 1, 3, 3);
-      } else { // analog: concentric / spiral rings
-        var cx = b.x + b.w / 2, cy = b.y + b.h / 2, m = Math.min(b.w, b.h) / 2;
-        ctx.strokeStyle = rgba(bc, 0.55); ctx.lineWidth = 1.2 * sc;
-        for (k = 4 * sc; k < m; k += 5 * sc) ctx.strokeRect(cx - k, cy - k, k * 2, k * 2);
-        ctx.strokeStyle = rgba(pal[1], 0.4); ctx.beginPath(); ctx.moveTo(b.x, cy); ctx.lineTo(b.x + b.w, cy); ctx.moveTo(cx, b.y); ctx.lineTo(cx, b.y + b.h); ctx.stroke();
-      }
-      ctx.restore();
-      ctx.strokeStyle = rgba(bc, 0.8); ctx.lineWidth = 1.3 * sc; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
-    }
-    // via dots where bus lines end
-    ctx.fillStyle = rgba(pal[1], 0.8);
-    for (i = 0; i < M.netPads.length; i++) { ctx.beginPath(); ctx.arc(M.netPads[i].x, M.netPads[i].y, 1.5 * sc, 0, 6.2832); ctx.fill(); }
-  }
-
-  function drawDieAnim(S, M, ctx, t) {
-    var sc = S.sc, i, k, pal = [hex(S.pal.a), hex(S.pal.b), hex(S.pal.v)], tick = Math.floor(t * 7);
-    for (i = 0; i < M.blocks.length; i++) {
-      var b = M.blocks[i], s1 = Math.sin(6.2832 * (t / b.per + b.ph)), s2 = Math.sin(6.2832 * (t / b.per2 + b.ph * 3));
-      var I = Math.pow(Math.max(0, s1), 2) * (0.6 + 0.4 * s2);
-      if (I > 0.02) { ctx.fillStyle = rgba(pal[b.col], I * 0.32); ctx.fillRect(b.x, b.y, b.w, b.h); }
-      if (b.type === 'sram') {
-        var y = ((t * b.sweep + b.ph) % 1) * b.h;
-        ctx.fillStyle = rgba(pal[1], 0.28 + I * 0.4); ctx.fillRect(b.x, b.y + y, b.w, 2.5 * sc);
-      } else if (b.type === 'logic') {
-        var rh = 5 * sc, rows = Math.max(1, ((b.h - 2) / rh) | 0);
-        for (k = 0; k < 2; k++) {
-          var r = (hash(tick * 31 + i * 7 + k * 101) * rows) | 0;
-          ctx.fillStyle = rgba(pal[1], 0.12 + I * 0.25); ctx.fillRect(b.x, b.y + 1 + r * rh, b.w, rh - 1);
-        }
-      } else if (b.type === 'data') {
-        var xx = ((t * 0.35 + b.ph) % 1) * b.w;
-        ctx.fillStyle = rgba(pal[1], 0.22 + I * 0.3); ctx.fillRect(b.x + xx, b.y, 3 * sc, b.h);
-      }
-      for (k = 0; k < b.hot.length; k++) {
-        var h = b.hot[k], u = Math.pow(Math.max(0, Math.sin(6.2832 * (t / h.per + h.ph))), 3) * (0.35 + I);
-        if (u > 0.03) { var z = h.r * (0.8 + u * 0.8); ctx.globalAlpha = Math.min(1, u); ctx.drawImage(S.sprHot, h.x - z, h.y - z, z * 2, z * 2); }
-      }
-      ctx.globalAlpha = 1;
-    }
-    drawPulses(ctx, M.pulses, t, sc);
-  }
-
-  // =====================================================================
   // MAGITECH v3: octilinear root bundles on a lattice + hidden back-layer links (design: refs/magitech-design.md)
   // =====================================================================
   // design: defaults tuned with tools/preview.py (doc defaults gave a sparse PCB-like bus look: few splits, density < 0.02)
@@ -1261,7 +1110,6 @@
   var VARIANTS = {
     pcb:      { build: buildPCB,      stat: drawPCBStatic,   anim: drawPCBAnim },
     veins:    { build: buildVeins,    stat: drawVeinsStatic, anim: drawVeinsAnim },
-    die:      { build: buildDie,      stat: drawDieStatic,   anim: drawDieAnim },
     magitech: { build: buildMagitech, stat: drawMagiStatic,  anim: drawMagiAnim }
   };
 

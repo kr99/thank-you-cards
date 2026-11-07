@@ -1,15 +1,15 @@
 /* card-share.js: pure, DOM-free helpers for share tokens and pointer mapping. UMD: CardShare global / module.exports.
-   Hash tokens (bare only; the artifact host drops ?query and #key=value):
-     #clean  #debug  #reduced  #c.<base64url of UTF-8 JSON>   joined with '~' e.g. #clean~reduced~c.eyJt...  */
+   Config comes from the query string only: ?c=<base64url of UTF-8 JSON>  (+ ?clean=1 ?debug=1 ?reduced=1). No anchor parsing.  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.CardShare = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   var MP = typeof module === 'object' && module.exports ? require('./motion-phases.js') : (typeof MotionPhases !== 'undefined' ? MotionPhases : null);
-  var BGS = ['die', 'pcb', 'veins', 'magitech'];
+  var BGS = ['pcb', 'veins', 'magitech'];
+  var PC_KEYS = ['a', 'b', 'v'];
   var S2 = ['off', 'fade', 'decode'], LAYS = ['grid', 'tight'];
-  var MAX_TOKEN = 6000, MAX_HASH = 6200, MAX_JSON = 4500, MAX_FRAGMENT = 1800;
+  var MAX_TOKEN = 6000, MAX_JSON = 4500;
   var MAX_MSG = 160, MAX_LINES = 3, MAX_MSG2 = 400, MAX_LINES2 = 8;
   var BOOLS = ['letters', 'cubes', 'linked', 'lanes', 'sweep', 'hide', 'crawl', 'blur', 'runes', 'cpulse', 'pvar'];
   /* seed = simulation (glyph cascade) seed; cseed = circuit layout seed. spd/crawlK/blurPx: clamped numbers, 3 decimals. */
@@ -56,6 +56,13 @@
     var h = 2166136261; for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
     return h % 1000000000;
   }
+  /* '#abc' | 'aabbcc' | '#AABBCC' -> '#aabbcc', else null. */
+  function normalizeHex(v) {
+    if (typeof v !== 'string') return null;
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim()); if (!m) return null;
+    var h = m[1].toLowerCase(); if (h.length === 3) h = h.replace(/./g, '$&$&');
+    return '#' + h;
+  }
   /* Whitelist copy into a fresh object: unknown keys dropped, values clamped. Never throws. */
   function validate(o) {
     var out = {};
@@ -70,6 +77,10 @@
     NUMS.forEach(function (k) { var v = o[k.k], n = +v; if (v != null && typeof v === 'number' && isFinite(n)) out[k.k] = Math.round(Math.max(k.lo, Math.min(k.hi, n)) * 1000) / 1000; });
     if (o.cseed != null && typeof o.cseed !== 'object') { var cs = clampInt(o.cseed, 0, 999999999); if (cs !== null) out.cseed = cs; }
     BOOLS.forEach(function (k) { if (typeof o[k] === 'boolean') out[k] = o[k]; else if (o[k] === 0 || o[k] === 1) out[k] = !!o[k]; });
+    if (o.pc && typeof o.pc === 'object' && !Array.isArray(o.pc)) {  // palette color overrides on top of 'pal'
+      var pc = {}; PC_KEYS.forEach(function (k) { var h = normalizeHex(o.pc[k]); if (h) pc[k] = h; });
+      if (Object.keys(pc).length) out.pc = pc;
+    }
     var ln = validateLanes(o.ln);
     if (ln) out.ln = ln;
     var mp = validateMotionPhases(o.mp);
@@ -142,45 +153,16 @@
     return validate(o);
   }
 
-  /* '#clean~c.xxx' (with or without '#') -> {clean, debug, reduced, config}. Any '=' or oversize: ignored entirely; bogus parts skipped. Never throws. */
-  function parseHash(h) {
+  /* location.search -> {config, clean, debug, reduced}. Query only (?c=<token>&clean=1&debug=1&reduced=1); anchors are never read. Never throws. */
+  function fromQuery(search) {
     var r = { clean: false, debug: false, reduced: false, config: null };
     try {
-      if (typeof h !== 'string') return r;
-      if (h.charAt(0) === '#') h = h.slice(1);
-      if (!h || h.length > MAX_HASH || h.indexOf('=') >= 0) return r;
-      h.split('~').forEach(function (t) {
-        if (!/^[A-Za-z0-9._-]+$/.test(t)) return;
-        if (t === 'clean') r.clean = true;
-        else if (t === 'debug') r.debug = true;
-        else if (t === 'reduced') r.reduced = true;
-        else if (t.indexOf('c.') === 0) { var c = decodeConfig(t); if (c) r.config = c; }
-      });
-      if (r.config && r.config.hide) r.clean = true;
+      var q = new URLSearchParams(search || ''), c = q.get('c');
+      if (c) r.config = decodeConfig(c.replace(/=+$/, ''));
+      r.clean = q.get('clean') === '1' || !!(r.config && r.config.hide);
+      r.debug = q.get('debug') === '1'; r.reduced = q.get('reduced') === '1';
     } catch (e) { /* ignore */ }
     return r;
-  }
-
-  /* Fragment WITHOUT '#' (kept for the hub / older callers). */
-  function buildHash(cfg, flags) {
-    var p = [];
-    flags = flags || {};
-    if (flags.clean) p.push('clean');
-    if (flags.reduced) p.push('reduced');
-    p.push(encodeConfig(cfg));
-    return p.join('~');
-  }
-  /* Fragment WITH leading '#': '#c.<token>' or '#clean~c.<token>'. */
-  function buildFragment(state, opts) {
-    var p = [];
-    if (opts && opts.clean) p.push('clean');
-    p.push(encodeConfig(state));
-    return '#' + p.join('~');
-  }
-  /* -> {fragment, length, tooLong}; tooLong when length > MAX_FRAGMENT (about 1800). */
-  function buildFragmentChecked(state, opts) {
-    var f = buildFragment(state, opts);
-    return { fragment: f, length: f.length, tooLong: f.length > MAX_FRAGMENT };
   }
 
   /* Pointer (px,py CSS px within the canvas box of w x h) -> background uv, 0..1, origin top-left.
@@ -193,19 +175,19 @@
   }
   function coverFor(w, h) { var a = w / h; return { x: a > 1 ? 1 : a, y: a > 1 ? 1 / a : 1 }; }
 
-  /* Pure: values JSON -> {url, tooLong}. Validates and encodes; opts {baseUrl, anchor, hide}. tooLong when url > 2000 chars. */
+  /* Pure: values JSON -> {url, tooLong}. Validates and encodes; opts {baseUrl, hide}. tooLong when url > 2000 chars. */
   function buildShareUrl(values, opts) {
     opts = opts || {};
     var cfg = validate(values); if (opts.hide) cfg.hide = true;
     var base = String(opts.baseUrl || '').split(/[?#]/)[0];
-    var url = base + (opts.anchor ? '#c=' : '?c=') + encodeConfig(cfg).slice(2);
+    var url = base + '?c=' + encodeConfig(cfg).slice(2);
     return { url: url, tooLong: url.length > 2000 };
   }
 
   /* every key validate() can emit; derived so it cannot drift from BOOLS/NUMS */
-  var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS, ['ln']);
+  var KEYS = ['m', 'm2', 's2', 'lay', 'bg', 'pal', 'seed', 'cseed'].concat(NUMS.map(function (k) { return k.k; }), BOOLS, ['ln', 'pc']);
 
-  return { KEYS: KEYS, BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2, MAX_FRAGMENT: MAX_FRAGMENT,
-    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildFragment: buildFragment, buildFragmentChecked: buildFragmentChecked, buildShareUrl: buildShareUrl, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
-    parseHash: parseHash, buildHash: buildHash, pointerToUV: pointerToUV, coverFor: coverFor };
+  return { KEYS: KEYS, BGS: BGS, S2: S2, LAYS: LAYS, MAX_MSG: MAX_MSG, MAX_LINES: MAX_LINES, MAX_MSG2: MAX_MSG2, MAX_LINES2: MAX_LINES2,
+    parseSeed: parseSeed, sanitizeMessage: sanitizeMessage, sanitizeMessage2: sanitizeMessage2, sanitizeInfo: sanitizeInfo, graphemes: graphemes, buildShareUrl: buildShareUrl, validate: validate, encodeConfig: encodeConfig, decodeConfig: decodeConfig,
+    fromQuery: fromQuery, normalizeHex: normalizeHex, PC_KEYS: PC_KEYS, pointerToUV: pointerToUV, coverFor: coverFor };
 });

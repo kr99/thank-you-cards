@@ -16,21 +16,19 @@ var Q = new URLSearchParams(location.search);
 if (Q.get('reseed') != null && !isNaN(+Q.get('reseed')) && !window.__cardSeedFn) { var _qs = +Q.get('reseed'); window.__cardSeedFn = function () { return Math.floor(_qs) % 1000000; }; }  // ?seed= is already the sim seed, so the reseed button uses ?reseed=
 var $ = function (id) { return document.getElementById(id); };
 var CS = window.CardShare;
-/* Config sources, later wins: ?text= etc < window.CARD_CONFIG (baked) < saved < ?c= < #hash tokens. */
-var HASH0 = CS.parseHash(location.hash);
+/* Config sources, later wins: ?text= etc < window.CARD_CONFIG (baked) < saved < ?c=. */
+var QS = CS.fromQuery(location.search);
 /* ?c=<base64url of the UTF-8 JSON config>: obfuscation only, not security. Validated by CS.decodeConfig (whitelisted keys, clamped values, never 'lock'). */
-/* Same token as a pseudo query param in the anchor: #c=<token> or #?c=<token> (never sent to the server). ?c= wins if both are present. */
-var PSEUDO_RE = /^#\??(?:[^#]*&)?c=([A-Za-z0-9_-]+={0,2})/;
-var QCFG = null; try { var _qc = Q.get('c'), _hm = PSEUDO_RE.exec(location.hash); if (!_qc && _hm) _qc = _hm[1]; if (_qc) QCFG = CS.decodeConfig(_qc.replace(/=+$/, '')); } catch (e) { QCFG = null; }
-var SHARED = !!(HASH0.config || QCFG);
+var QCFG = QS.config;
+var SHARED = !!QCFG;
 var BAKED = CS.validate(window.CARD_CONFIG || {}), LOCKED = !!(window.CARD_CONFIG && window.CARD_CONFIG.lock);
-var reduced = Q.get('reduced') === '1' || HASH0.reduced || !!(window.CARD_CONFIG && window.CARD_CONFIG.reduced) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+var reduced = QS.reduced || !!(window.CARD_CONFIG && window.CARD_CONFIG.reduced) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /* ------------------------------------------------------------ settings */
 var S = {
   text: Q.get('text') || 'YOUR MESSAGE HERE',  // typed casing is kept exactly (no uppercasing anywhere)
   text2: '', mode2: 'off', tight: true,
-  bg: Q.get('bg') || 'die',            // DEFAULT_BG is die on purpose (see refs/glass-card.md); CB.variants really lists magitech, the switcher offers it
+  bg: Q.get('bg') || 'pcb',
   bgSeed: parseInt(Q.get('bgseed') || '7', 10),
   seed: parseInt(Q.get('seed') || '11', 10),
   letters: Q.get('letters') !== '0',
@@ -42,9 +40,9 @@ var S = {
   colsOverride: parseInt(Q.get('cols') || '0', 10),
   rowsOverride: parseInt(Q.get('rows') || '0', 10)
 };
-var BG_OK = CB.variants || ['die', 'pcb', 'veins'];
+var BG_OK = CB.variants || ['pcb', 'veins'];
 var S2_OK = ['off', 'fade', 'decode'];
-var PAL = 'tron', SEED0 = S.seed;
+var PAL = 'tron', PC = {}, SEED0 = S.seed;
 function mergeCfg(c) {  // validated config -> S (before first build)
   if (!c) return;
   if (c.m) S.text = c.m;
@@ -66,12 +64,12 @@ function mergeCfg(c) {  // validated config -> S (before first build)
     if (LPL) { LPL.setLoop(lpOpts.loop); LPL.setLoopHold(lpOpts.loopHold); }
   }
 }
-if (BG_OK.indexOf(S.bg) < 0) S.bg = 'die';
+if (BG_OK.indexOf(S.bg) < 0) S.bg = 'pcb';
 /* Saved state: this viewer's last settings, kept in localStorage (per browser; may be missing or throw, so every access is guarded).
-   Order, later wins: defaults < baked < saved < #hash. A share link or locked page never loads saved state. */
+   Order, later wins: defaults < baked < saved < ?c=. A share link or locked page never loads saved state. */
 var STORE_KEY = 'cardLab.cfg.v1', STORED = null;
 try { var _st = localStorage.getItem(STORE_KEY); if (_st) STORED = CS.decodeConfig(_st); } catch (e) { STORED = null; }
-mergeCfg(BAKED); if (STORED && !SHARED && !LOCKED) mergeCfg(STORED); mergeCfg(QCFG); mergeCfg(HASH0.config);
+mergeCfg(BAKED); if (STORED && !SHARED && !LOCKED) mergeCfg(STORED); mergeCfg(QCFG);
 var K = {                       // tuning knobs (see refs/glass-card.md)
   tickMs: 75, cubeSize: 0.86, glyphSize: 1.1, maxTilt: 1.05,
   turnUp: 1 / 0.07, turnDown: 1 / 0.2, turnDownLocked: 1 / 0.3,
@@ -235,7 +233,10 @@ var camera = new T.PerspectiveCamera(K.fov, 1.75, 0.1, 100);
 
 var bgLayer = Background.create(CB, { width: K.bgSize, height: K.bgSize, variant: S.bg, seed: S.bgSeed, pow2: true }), bg = bgLayer.inst;
 var HAS_POINTER_API = typeof bg.hoverAt === 'function' && typeof bg.pulseAt === 'function';
-function applyPal(n) { bgLayer.setPalette(n); PAL = bgLayer.palette; }
+function applyPal(n) {
+  bgLayer.setPalette(n); PAL = bgLayer.palette;
+  if (Object.keys(PC).length && typeof bg.setPalette === 'function') bg.setPalette(Object.assign({ base: PAL }, PC));  // native-picker overrides (hex, validated by CS)
+}
 applyPal(PAL);
 var bgTex = new T.CanvasTexture(bg.canvas);
 bgTex.generateMipmaps = true; bgTex.minFilter = T.LinearMipmapLinearFilter;  // mips feed the post-resolve blur (uBgLod bias) bgTex.magFilter = T.LinearFilter;
@@ -730,14 +731,21 @@ function startDebug() { if (dbgTimer) return; $('debug').hidden = false; dbgTime
 var dbgTimer = 0;
 if (Q.get('debug')) startDebug();
 /* ---- share / hide controls / pointer (all additive) ---- */
-var palSel = $('pal'), clean = false;
+var palSel = $('pal'), clean = false, syncPc = function () {};
 (function initPal() {
   if (typeof bg.setPalette !== 'function' || BG_OK.indexOf('magitech') < 0) return;  // old circuit-bg.js: no palette picker
   var names = (CB.palettes && (Array.isArray(CB.palettes) ? CB.palettes : Object.keys(CB.palettes))) || ['tron'];
   names.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n; palSel.appendChild(o); });
   palSel.value = PAL || names[0];
   $('palwrap').hidden = false;
-  palSel.addEventListener('change', function () { applyPal(palSel.value); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
+  var cin = {};
+  CS.PC_KEYS.forEach(function (k) {
+    cin[k] = $('pc-' + k);
+    cin[k].addEventListener('input', function () { var h = CS.normalizeHex(cin[k].value); if (!h) return; PC[k] = h; applyPal(PAL); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
+  });
+  syncPc = function () { var base = (CB.palettes && CB.palettes[PAL]) || {}; CS.PC_KEYS.forEach(function (k) { cin[k].value = PC[k] || CS.normalizeHex(base[k]) || '#000000'; }); };
+  $('pc-reset').addEventListener('click', function () { PC = {}; applyPal(PAL); syncPc(); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
+  palSel.addEventListener('change', function () { PC = {}; applyPal(palSel.value); syncPc(); bg.update(run.t); bgTex.needsUpdate = true; if (reduced) requestStatic(); });
 })();
 if (BG_OK.indexOf('magitech') < 0) { var mg = $('bgopt-magitech'); if (mg) mg.hidden = true; }
 function setClean(on) {
@@ -756,7 +764,7 @@ function syncUI() {
   if (palSel.options.length) palSel.value = PAL || palSel.options[0].value;
 }
 function pushBgToggles() { if (bg.setRunes) bg.setRunes(S.runes); if (bg.setPulseVariance) bg.setPulseVariance(S.pvar); }
-function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
+function currentCfg() { return { m: S.text, m2: S.text2 || undefined, s2: S.mode2, lay: S.tight ? 'tight' : 'grid', bg: S.bg, pal: PAL || undefined, pc: Object.keys(PC).length ? PC : undefined, seed: SEED0, letters: S.letters, cubes: S.cubes, linked: S.link, lanes: S.lanes, sweep: S.sweep,
     spd: S.spd, crawl: S.crawl, crawlK: S.crawlK, blur: S.blur, blurPx: S.blurPx, runes: S.runes, cpulse: S.cpulse, pvar: S.pvar, cseed: S.bgSeed, ln: { seed: LV.seed, T: LV.T, K: LV.K, GAP_P: LV.GAP_P, R: S.rowsOverride || undefined, C: S.colsOverride || undefined, loop: lpOpts.loop, hold: lpOpts.loopHold } }; }
 /* CURRENT form values as JSON, regardless of Replay: message/second line/mode read the DOM live, the rest is applied state. */
 function currentValuesJson() {
@@ -772,22 +780,6 @@ function saveState() {
   saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, CS.encodeConfig(currentValuesJson())); } catch (e) {} }, 400);
 }
 ['input', 'change', 'click'].forEach(function (ev) { document.addEventListener(ev, saveState); });
-var lastHashApplied = location.hash;
-function applyHash(h) {  // live: from hub postMessage or hashchange
-  if (h === lastHashApplied) return; lastHashApplied = h;
-  var P = CS.parseHash(h);
-  if (LOCKED) return;
-  setClean(P.clean); if (P.debug) startDebug();
-  var c = P.config; if (!c) return;
-  var before = cfgKey();
-  mergeCfg(c);
-  if (c.bg) { bg.setVariant(S.bg); } if (c.pal) applyPal(PAL);
-  if (c.lanes === false) { W.lanes = null; LPL = null; }
-  if (c.ln && lanesPanel) lanesPanel.setValues(Object.assign({ R: S.rowsOverride || W.rows, C: S.colsOverride || W.cols }, LV));
-  syncUI(); pushBgToggles(); if (c.cseed != null && typeof bg.setSeed === 'function') bg.setSeed(S.bgSeed);
-  bg.update(run.t); bgTex.needsUpdate = true;
-  if (before !== cfgKey()) { build(S.text); replay(); } else if (reduced) requestStatic();
-}
 $('replayfloat').addEventListener('click', function () { replay(); });   // stays visible when the controls are hidden (also on locked pages)
 $('hidectl').addEventListener('click', function () { setClean(true); $('showctl').focus(); });
 $('showctl').addEventListener('click', function () { if (!LOCKED) { setClean(false); $('hidectl').focus(); } });
@@ -811,20 +803,15 @@ $('copylink').addEventListener('click', function () {
 });
 /* Share link: this page's URL with ?c=<base64url JSON>. Anyone opening it sees these settings; encoding is not encryption. */
 $('copyqlink').addEventListener('click', function () {
-  var res = CS.buildShareUrl(currentValuesJson(), { baseUrl: location.href, anchor: $('qanchor').checked, hide: $('incclean').checked }), url = res.url, out = $('linkout');
+  var res = CS.buildShareUrl(currentValuesJson(), { baseUrl: location.href, hide: $('incclean').checked }), url = res.url, out = $('linkout');
   out.textContent = url; out.style.whiteSpace = 'normal'; out.hidden = false; $('linknote').hidden = true;
   $('linkwarn').hidden = !res.tooLong; if (res.tooLong) $('linkwarn').textContent = 'Long link (' + url.length + ' characters); some apps may cut it.';
   var sel = function () { try { var r = document.createRange(); r.selectNodeContents(out); var g = getSelection(); g.removeAllRanges(); g.addRange(r); } catch (e) {} setStatus('Select and copy the link shown below.'); };
   try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { setStatus('Share link copied.'); }, sel); else sel(); } catch (e) { sel(); }
 });
-window.addEventListener('hashchange', function () { if (PSEUDO_RE.test(location.hash)) { location.reload(); return; } applyHash(location.hash); });
-window.addEventListener('message', function (e) {
-  if (e.source !== window.parent || !e.data || e.data.type !== 'card-hash' || typeof e.data.hash !== 'string') return;
-  applyHash(e.data.hash);
-});
 try { if (window.parent !== window) window.parent.postMessage({ type: 'card-ready' }, '*'); } catch (e) {}
-setClean(HASH0.clean || !!BAKED.hide || !!(QCFG && QCFG.hide) || LOCKED);
-if (HASH0.debug) startDebug();
+setClean(QS.clean || !!BAKED.hide || !!(QCFG && QCFG.hide) || LOCKED);
+if (QS.debug) startDebug();
 
 /* Pointer -> circuit background. No-op without hoverAt/pulseAt (old circuit-bg.js) and in reduced motion. */
 pushBgToggles(); syncUI();

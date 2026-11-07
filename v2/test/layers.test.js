@@ -18,9 +18,9 @@ test('Background drives variant/seed/palette/draw against a fake CB (no text)', 
   const inst = { canvas: { id: 'c' }, setVariant: (v) => calls.push('v:' + v), setSeed: (n) => calls.push('s:' + n),
     setPalette: (p) => calls.push('p:' + p), update: (t) => calls.push('u:' + t) };
   const CB = { palettes: { tron: 1, ember: 1 }, create: (o) => { calls.push('create:' + o.variant); return inst; } };
-  const bg = Background.create(CB, { variant: 'die', seed: 7 });
+  const bg = Background.create(CB, { variant: 'pcb', seed: 7 });
   bg.setPalette('ember'); bg.setVariant('pcb'); bg.setSeed(3); bg.draw(1.5);
-  assert.deepStrictEqual(calls, ['create:die', 'p:ember', 'v:pcb', 'p:ember', 's:3', 'u:1.5']);
+  assert.deepStrictEqual(calls, ['create:pcb', 'p:ember', 'v:pcb', 'p:ember', 's:3', 'u:1.5']);
   assert.strictEqual(bg.canvas, inst.canvas);
   bg.setPalette('nope'); assert.strictEqual(bg.palette, 'tron');
 });

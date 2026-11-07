@@ -88,14 +88,15 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
           <span class="lbl">Background</span>
           <div class="seg" role="radiogroup" aria-label="Background">
           <label id="bgopt-magitech"><input type="radio" name="bg" id="bg-magitech" value="magitech"><span>Magitech</span></label>
-          <label><input type="radio" name="bg" id="bg-die" value="die" checked><span>Die</span></label>
-          <label><input type="radio" name="bg" id="bg-pcb" value="pcb"><span>PCB</span></label>
+          <label><input type="radio" name="bg" id="bg-pcb" value="pcb" checked><span>PCB</span></label>
           <label><input type="radio" name="bg" id="bg-veins" value="veins"><span>Veins</span></label>
         </div>
         </div>
         <div id="palwrap" hidden>
           <label class="lbl" for="pal">Palette</label>
           <select id="pal"></select>
+          <span class="lbl">Colors</span>
+          <input type="color" id="pc-a" aria-label="Line color"><input type="color" id="pc-b" aria-label="Glow color"><input type="color" id="pc-v" aria-label="Accent color"><button type="button" id="pc-reset">Reset</button>
         </div>
       </div>
       <div class="feat">
@@ -139,7 +140,6 @@ body.clean #cleanbar { display: flex; } body.locked #showctl { display: none; }
         <button type="button" id="hidectl">Hide controls</button>
         <button type="button" id="copylink">Copy JSON settings</button>
         <button type="button" id="copyqlink">Copy share link</button>
-        <label class="chk"><input type="checkbox" id="qanchor"> use #anchor, not ?query</label>
         <label class="chk"><input type="checkbox" id="incclean"> include hide controls</label>
       </div>
       <p id="linkout" hidden aria-live="polite" tabindex="0"></p>
