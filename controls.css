@@ -89,6 +89,9 @@ legend, .lbl { font: 600 11px var(--display); letter-spacing: .12em; text-transf
 .mp-name { font: 600 13px var(--body); color: var(--fg); }
 .mp-plabel, .mp-unit { font: 11px ui-monospace, monospace; color: var(--muted); }
 .mp-num { width: 5.5em; min-height: 40px; }
+.mp-grip { cursor: grab; color: var(--muted); padding: 0 4px; user-select: none; }
+.mp-dragging { opacity: .45; }
+.mp-row.mp-drop { border-color: #ffcf8a; box-shadow: 0 0 0 1px #ffcf8a; }
 .mp-moves { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .mp-btn { min-height: 40px; min-width: 40px; }
 .mp-addrow, .mp-iorow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }

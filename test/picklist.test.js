@@ -53,3 +53,23 @@ test('importText returns tags on valid input, error on empty or invalid', () => 
   assert.match(PL.importText('phase:3s,bogus').error, /invalid/);
   assert.match(PL.importText('phase:0.1s').error, /invalid/);
 });
+
+test('moveItem moves to index immutably, clamps, no-op when equal', () => {
+  const l = ['a', 'b', 'c', 'd'];
+  assert.deepEqual(PL.moveItem(l, 0, 2), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(PL.moveItem(l, 3, 1), ['a', 'd', 'b', 'c']);
+  assert.deepEqual(PL.moveItem(l, 1, 99), ['a', 'c', 'd', 'b']);
+  assert.deepEqual(PL.moveItem(l, 2, -5), ['c', 'a', 'b', 'd']);
+  assert.deepEqual(PL.moveItem(l, 2, 2), l);
+  assert.deepEqual(PL.moveItem(l, 9, 0), l);
+  assert.deepEqual(l, ['a', 'b', 'c', 'd']);
+});
+
+test('dropIndexFromY picks the row whose midpoint is first at/below y', () => {
+  const r = [{ top: 0, bottom: 10 }, { top: 10, bottom: 30 }, { top: 30, bottom: 40 }];
+  assert.equal(PL.dropIndexFromY(r, -5), 0);
+  assert.equal(PL.dropIndexFromY(r, 5), 0);
+  assert.equal(PL.dropIndexFromY(r, 21), 2);
+  assert.equal(PL.dropIndexFromY(r, 99), 2);
+  assert.equal(PL.dropIndexFromY([], 5), -1);
+});

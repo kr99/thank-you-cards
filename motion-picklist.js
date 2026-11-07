@@ -30,6 +30,22 @@
     return out;
   }
 
+  /* Pure: NEW array with list[from] moved to index to (clamped). No-op when equal or from out of range. */
+  function moveItem(list, from, to) {
+    var out = list.slice();
+    if (from < 0 || from >= out.length) return out;
+    var t = Math.max(0, Math.min(out.length - 1, to));
+    if (t === from) return out;
+    out.splice(t, 0, out.splice(from, 1)[0]);
+    return out;
+  }
+
+  /* Pure: index of first rect whose vertical midpoint is >= y (last if none); -1 when empty. */
+  function dropIndexFromY(rects, y) {
+    for (var i = 0; i < rects.length; i++) if ((rects[i].top + rects[i].bottom) / 2 >= y) return i;
+    return rects.length - 1;
+  }
+
   /* Pure: removes tags[i] -> NEW array. */
   function removePure(tags, i) {
     return tags.filter(function (_, k) { return k !== i; });
@@ -165,12 +181,45 @@
       return box;
     }
 
+    var dragFrom = -1;
+    function dropTarget(e) {
+      var rows = list.querySelectorAll('.mp-row');
+      return dropIndexFromY(Array.prototype.map.call(rows, function (r) { return r.getBoundingClientRect(); }), e.clientY);
+    }
+    function dragEnd() {
+      dragFrom = -1;
+      Array.prototype.forEach.call(list.querySelectorAll('.mp-dragging, .mp-drop'), function (n) { n.classList.remove('mp-dragging', 'mp-drop'); });
+    }
+    list.addEventListener('dragover', function (e) {
+      if (dragFrom < 0) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      var t = dropTarget(e);
+      Array.prototype.forEach.call(list.querySelectorAll('.mp-row'), function (r, k) { r.classList.toggle('mp-drop', k === t && k !== dragFrom); });
+    });
+    list.addEventListener('drop', function (e) {
+      if (dragFrom < 0) return;
+      e.preventDefault();
+      var from = dragFrom, to = dropTarget(e);
+      dragEnd();
+      if (to >= 0 && to !== from) commit(moveItem(tags, from, to));
+    });
+
     function render() {
       list.textContent = '';
       tags.forEach(function (tag, i) {
         var model = rowModel(tag);
         var li = el(doc, 'li', 'mp-row');
         li.dataset.index = i;
+        var grip = el(doc, 'span', 'mp-grip', '☰');
+        grip.draggable = true; grip.setAttribute('aria-hidden', 'true'); grip.title = 'Drag to reorder';
+        grip.addEventListener('dragstart', function (e) {
+          dragFrom = i;
+          if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(li, 0, 0); }
+          li.classList.add('mp-dragging');
+        });
+        grip.addEventListener('dragend', dragEnd);
+        li.appendChild(grip);
         li.appendChild(el(doc, 'span', 'mp-idx', String(i + 1)));
         if (model) li.appendChild(rowControls(i, model));
         li.appendChild(rowButtons(i));
@@ -218,7 +267,7 @@
   }
 
   return {
-    create: create, movePure: movePure, removePure: removePure, rowModel: rowModel,
+    create: create, moveItem: moveItem, dropIndexFromY: dropIndexFromY, movePure: movePure, removePure: removePure, rowModel: rowModel,
     buildTag: buildTag, tightReverts: tightReverts, importText: importText,
     PARAM_UI: PARAM_UI, TIGHT_HINT: TIGHT_HINT
   };
