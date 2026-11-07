@@ -6,8 +6,10 @@
  *  - Entering cubes start contiguous right behind the back edge (-m..-1): never on board, never cross A cubes,
  *    and their gaps open while travelling on screen (arriving pre-spread made gaps pop in). Limit: a gap inside
  *    the entering stream still opens partly off-board, so it is not perfectly time-symmetric with closing.
- *  - PAIRING 'rigid' (default): non-last steps slide survivors rigidly (A+s); only entering cubes use B's gap
- *    pattern, filling slots [0,dist) from the back edge. Survivors that would leave the front exit; nothing exits
+ *  - PAIRING 'rigid' (default): non-last steps: back cube slides by s; every later cube chains to its neighbour
+ *    with a fresh random hole width (B pattern, GAP_P), floored at its own start (never backward), so interior
+ *    holes open/close by neighbour spacing differing between A and B. Entering cubes start contiguous behind the
+ *    back edge and spread into slots [0,dist) by the same chain. Survivors that would leave the front exit; nothing exits
  *    backward (the 'surplus exits back edge' idea would be a backward move). Last step always uses fresh pairing
  *    with gapless B (rigid cannot pack). 'fresh' = pair remaining A with front-most B.
  *  - sampleLanes4 clip rule: cell (x,y) spans [x,x+1); returned iff it overlaps the board: -1 < x < C, -1 < y < R.
@@ -55,11 +57,19 @@
     for (var i = 0; i < L; i++) if (last || rng() >= p.GAP_P) b.push(i);
     var rem = a.filter(function (q) { return q + dist < L; });
     var out = [];
-    a.filter(function (q) { return q + dist >= L; }).forEach(function (q) { out.push([q, q + dist]); });
+    if (p.PAIRING === 'rigid' && !last) { /* handled below */ } else a.filter(function (q) { return q + dist >= L; }).forEach(function (q) { out.push([q, q + dist]); });
     if (p.PAIRING === 'rigid' && !last) {
-      rem.forEach(function (q) { out.push([q, q + dist]); });
-      var ent = b.filter(function (e) { return e < dist; });
-      ent.forEach(function (e, j) { out.push([-(ent.length - j), e, true]); });
+      // spacing follows a fresh random hole pattern (B) chained from the back cube; never moves backward
+      var gapRun = function () { var g = 0; while (g < L && rng() < p.GAP_P) g++; return g; };
+      var tg = [];
+      a.forEach(function (q, j) {
+        var floor = q + dist >= L ? q + dist : q;
+        tg.push(j === 0 ? q + dist : Math.max(floor, tg[j - 1] + 1 + gapRun()));
+        out.push([q, tg[j]]);
+      });
+      var ent = [], e = (a.length ? tg[0] : dist) - 1 - gapRun();
+      for (; e >= 0; e -= 1 + gapRun()) if (e < dist) ent.unshift(e);
+      ent.forEach(function (e2, j) { out.push([-(ent.length - j), e2, true]); });
       return out.map(function (c) { return { f: to(c[0]), t: to(c[1]), enter: !!c[2] }; });
     }
     var r = rem.length, nb = b.length;

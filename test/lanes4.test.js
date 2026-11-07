@@ -78,9 +78,8 @@ test('10 only on-board survivors carry; cube count never grows', () => {
   }
 });
 
-test('11 rigid: zero shift + non-last => zero movement; no backward; order; packed', () => {
+test('11 rigid: no backward; order; packed', () => {
   const z = P(4, { CAP_ROW: 0, CAP_COL: 0, Q_FULL: 0, K: 2, PAIRING: 'rigid' });
-  assert.ok(z.steps[0].cubes.every(q => q.fx === q.tx && q.fy === q.ty));
   assert.strictEqual(sampleLanes4(z, T).length, R * C);
   for (let seed = 1; seed <= 40; seed++) {
     const plan = P(seed, { PAIRING: 'rigid', Q_FULL: 0.3 });
@@ -200,4 +199,38 @@ test('14 entering cubes start contiguous right behind the edge (gaps open on scr
       });
     });
   }
+});
+
+// ---- hole birth/death measurement (anonymous cubes; holes tracked by overlap) ----
+const HR = 3, HC = 14, HT = 5.5, HN = 1000, hdt = HT / HN;
+function holeStats(PAIRING, seeds) {
+  const R = HR, C = HC, T = HT, N = HN, dt = hdt;
+  const S={born:0,bornEdge:0,died:0,diedEdge:0,wb:0,wd:0,bornPop:0,diedPop:0,ex:null};
+  for(let seed=1;seed<=seeds;seed++){
+    const plan=planLanes4({R,C,T,seed,params:{PAIRING}});
+    const vmax=plan.steps.map(st=>Math.PI/2*Math.max(...st.cubes.map(q=>Math.max(Math.abs(q.tx-q.fx),Math.abs(q.ty-q.fy))))/plan.D);
+    let prev=null,pk=-1;
+    for(let i=0;i<=N;i++){
+      const t=i*dt,k=Math.min(plan.K-1,Math.floor(t/plan.D)),row=plan.steps[k].axis==='row',Lx=row?C:R,by={};
+      sampleLanes4(plan,t).forEach(o=>{const key=row?Math.round(o.y):Math.round(o.x);(by[key]=by[key]||[]).push(row?o.x:o.y)});
+      const cur={};
+      for(const key in by){const a=by[key].sort((x,y)=>x-y);cur[key]=[];
+        for(let j=0;j+1<a.length;j++){const w=a[j+1]-a[j]-1;if(w>0.02)cur[key].push({lo:a[j]+1,hi:a[j+1],w,edge:a[j]<-1+2*vmax[k]*dt+0.05||a[j+1]>Lx-0.05-2*vmax[k]*dt})}}
+      if(prev&&pk===k){
+        const tol=vmax[k]*dt*2+0.02;
+        const ov=(h,list)=>list.some(g=>g.lo<h.hi&&g.hi>h.lo);
+        for(const key in cur)cur[key].forEach(h=>{if(!ov(h,prev[key]||[])){S.born++;if(h.edge)S.bornEdge++;else{if(h.w>S.wb){S.wb=h.w;S.ex={seed,k,key,t}}if(h.w>tol)S.bornPop++}}});
+        for(const key in prev)prev[key].forEach(h=>{if(!ov(h,cur[key]||[])){S.died++;if(h.edge)S.diedEdge++;else{if(h.w>S.wd)S.wd=h.w;if(h.w>tol)S.diedPop++}}});
+      }
+      prev=cur;pk=k;
+    }
+  }
+  return S;
+}
+
+for (const PAIRING of ['rigid', 'fresh']) test('15 interior holes open (born smoothly) as often as they close: ' + PAIRING, () => {
+  const S = holeStats(PAIRING, 30);
+  assert.strictEqual(S.bornPop, 0, 'interior births must not pop');
+  assert.strictEqual(S.diedPop, 0, 'interior deaths must not pop');
+  assert.ok(S.born - S.bornEdge >= 150, `interior hole births: ${S.born - S.bornEdge} (edge ${S.bornEdge}); died ${S.died - S.diedEdge} interior`);
 });

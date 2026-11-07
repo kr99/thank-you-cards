@@ -71,7 +71,7 @@ ps.id = 'pairing'; ['rigid', 'fresh'].forEach(function (v) { ps.add(new Option(v
 ps.onchange = function () { pairing = ps.value; build(); };
 var cmp = document.createElement('input'); cmp.type = 'checkbox'; cmp.id = 'cmp'; cmp.onchange = build;
 var rs = document.createElement('button'); rs.id = 'reset'; rs.textContent = 'Reset to defaults'; rs.onclick = setDefaults;
-gs.append(row('Gap style', 'rigid: lane slides as a block; fresh: cubes reshuffle', ps),
+gs.append(row('Gap style', 'rigid: back cube slides, neighbours chain behind it with new random hole widths (never backward); fresh: remaining cubes re-pair to a new layout', ps),
   row('Compare', 'Two canvases, same seed: fresh vs rigid, one shared clock', cmp), row('Defaults', 'Restore every control', rs));
 // Playback
 var gp = fieldset('Playback'), play = document.createElement('button'), loop = document.createElement('input'),
