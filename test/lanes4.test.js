@@ -162,3 +162,42 @@ test('12 no mid-board pop: entering cubes start fully off board; frames continuo
     }
   }
 });
+
+const ease = u => (1 - Math.cos(Math.PI * u)) / 2;
+test('13 gap widths between neighbour cubes (by identity) are continuous in t', () => {
+  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 40; seed++) {
+    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: { PAIRING } }), n = 400;
+    plan.steps.forEach((st, k) => {
+      const row = st.axis === 'row', L = row ? 14 : 3, by = {};
+      st.cubes.forEach(q => { const key = row ? q.fy : q.fx; (by[key] = by[key] || []).push({ f: row ? q.fx : q.fy, t: row ? q.tx : q.ty }); });
+      const maxD = Math.max(...st.cubes.map(q => Math.max(Math.abs(q.tx - q.fx), Math.abs(q.ty - q.fy))));
+      const bound = 2 * (Math.PI / 2) * maxD / n + 1e-6;
+      Object.values(by).forEach(a => {
+        a.sort((x, y) => x.f - y.f);
+        let prev = null;
+        for (let i = 0; i <= n; i++) {
+          const pos = a.map(c => c.f + (c.t - c.f) * ease(i / n));
+          const g = a.slice(1).map((_, j) => ({ w: pos[j + 1] - pos[j] - 1, vis: pos[j] > -1 && pos[j + 1] < L }));
+          if (prev) g.forEach((x, j) => { if (x.vis && prev[j].vis) assert.ok(Math.abs(x.w - prev[j].w) <= bound, `${PAIRING} s${seed} step${k}: gap jump`); });
+          prev = g;
+        }
+      });
+    });
+  }
+});
+
+test('14 entering cubes start contiguous right behind the edge (gaps open on screen, not off-board)', () => {
+  for (const PAIRING of ['rigid', 'fresh']) for (let seed = 1; seed <= 40; seed++) {
+    const plan = planLanes4({ R: 3, C: 14, T: 5.5, seed, params: { PAIRING } });
+    plan.steps.forEach(st => {
+      const row = st.axis === 'row', by = {};
+      st.cubes.filter(q => q.enter).forEach(q => { const key = row ? q.fy : q.fx; (by[key] = by[key] || []).push(row ? q.fx : q.fy); });
+      Object.values(by).forEach(a => {
+        a.sort((x, y) => x - y);
+        // front space or mirrored: contiguous run ending adjacent to an edge
+        const ok = a.every((v, i) => i === 0 || v - a[i - 1] === 1) && (a[a.length - 1] === -1 || a[0] === (row ? 14 : 3));
+        assert.ok(ok, `${PAIRING} s${seed}: ${a}`);
+      });
+    });
+  }
+});

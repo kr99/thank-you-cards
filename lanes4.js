@@ -3,8 +3,9 @@
  *  - Work in "front space" p' (p' = p if dir>0 else L-1-p) so one code path serves both directions.
  *  - Surplus remaining A cubes (more than |B|): the back-most exit past the BACK edge (ends -m..-1), not the
  *    front: front exit would cross the paired cubes. Order stays preserved.
- *  - Entering cubes start at min(B_j - dist, -(m-j)): always stacked fully off the back edge, so they never
- *    pop in mid-board or cross A cubes (spec formula alone started on board when dist was small).
+ *  - Entering cubes start contiguous right behind the back edge (-m..-1): never on board, never cross A cubes,
+ *    and their gaps open while travelling on screen (arriving pre-spread made gaps pop in). Limit: a gap inside
+ *    the entering stream still opens partly off-board, so it is not perfectly time-symmetric with closing.
  *  - PAIRING 'rigid' (default): non-last steps slide survivors rigidly (A+s); only entering cubes use B's gap
  *    pattern, filling slots [0,dist) from the back edge. Survivors that would leave the front exit; nothing exits
  *    backward (the 'surplus exits back edge' idea would be a backward move). Last step always uses fresh pairing
@@ -57,7 +58,8 @@
     a.filter(function (q) { return q + dist >= L; }).forEach(function (q) { out.push([q, q + dist]); });
     if (p.PAIRING === 'rigid' && !last) {
       rem.forEach(function (q) { out.push([q, q + dist]); });
-      b.filter(function (e) { return e < dist; }).forEach(function (e) { out.push([e - dist, e, true]); });
+      var ent = b.filter(function (e) { return e < dist; });
+      ent.forEach(function (e, j) { out.push([-(ent.length - j), e, true]); });
       return out.map(function (c) { return { f: to(c[0]), t: to(c[1]), enter: !!c[2] }; });
     }
     var r = rem.length, nb = b.length;
@@ -68,7 +70,7 @@
     }
     var front = b.slice(nb - r), enter = b.slice(0, nb - r), me = enter.length;
     rem.forEach(function (q, j) { out.push([q, front[j]]); });
-    enter.forEach(function (e, j) { out.push([Math.min(e - dist, -(me - j)), e, true]); });
+    enter.forEach(function (e, j) { out.push([-(me - j), e, true]); });
     return out.map(function (c) { return { f: to(c[0]), t: to(c[1]), enter: !!c[2] }; });
   }
 

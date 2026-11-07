@@ -15,10 +15,15 @@ legend{color:#8cf;padding:0 6px}
 button,select{background:#252a35;color:#d8dde6;border:1px solid #444;border-radius:4px;padding:3px 8px}
 #tout{min-width:56px}
 </style>
+<div id="err" style="color:#f88;font:15px monospace"></div>
 <div id="panel"></div>
 <div id="cv"></div>
 <script src="./lanes4.js"></script>
 <script>
+if (typeof Lanes4 === 'undefined') {
+  document.getElementById('err').textContent = 'lanes4.js failed to load: keep demo-lanes4.html next to lanes4.js and reload.';
+} else window.addEventListener('DOMContentLoaded', init);
+function init() {
 var D = Lanes4.LANES4_DEFAULTS, TXT = 'THANK YOU ';
 // [key, min, max, step, default, isPlanParam, label, help, group]
 var SPEC = [
@@ -51,7 +56,7 @@ SPEC.forEach(function (s) {
   var g = groups[s[8]] = groups[s[8]] || fieldset(s[8]);
   var i = document.createElement('input'), o = document.createElement('output');
   i.type = 'range'; i.min = s[1]; i.max = s[2]; i.step = s[3]; i.id = 'p_' + s[0];
-  i.oninput = function () { V[s[0]] = +i.value; o.textContent = i.value; build(); };
+  i.oninput = function () { var v = parseFloat(i.value); if (!isFinite(v)) v = s[4]; V[s[0]] = v; o.textContent = v; build(); };
   o.id = 'o_' + s[0]; s.i = i; s.o = o;
   var els = [i, o];
   if (s[0] === 'seed') {
@@ -75,7 +80,7 @@ play.id = 'play'; play.textContent = 'Pause';
 play.onclick = function () { playing = !playing; play.textContent = playing ? 'Pause' : 'Play'; if (playing && t >= V.T) t = 0; };
 loop.type = 'checkbox'; loop.id = 'loop'; loop.checked = true;
 sp.id = 'speed'; ['0.25', '0.5', '1', '1.5', '2'].forEach(function (v) { sp.add(new Option(v + 'x', v)); }); sp.value = '1';
-sc.type = 'range'; sc.id = 'scrub'; sc.min = 0; sc.max = 1; sc.step = 0.001; sc.value = 0; sc.oninput = function () { t = +sc.value; };
+sc.type = 'range'; sc.id = 'scrub'; sc.min = 0; sc.max = 1; sc.step = 0.001; sc.value = 0; sc.oninput = function () { t = parseFloat(sc.value) || 0; };
 tout.id = 'tout';
 gp.append(row('Play / pause', 'Start or stop the clock', play), row('Loop', 'Restart when the animation ends', loop),
   row('Speed', 'Playback rate 0.25x to 2x', sp), row('Time (s)', 'Scrub to any moment', sc, tout));
@@ -97,7 +102,7 @@ function build() {
     c.width = (Math.min(1100, V.C * 40 + 20) * (pairs.length > 1 ? 0.9 : 1)) | 0; c.height = V.R * 40 + 20;
     w.append(h, c, st); host.append(w); cvs.push(c); sts.push(st);
   });
-  sc.max = V.T;
+  sc.max = V.T; t = Math.min(t, V.T);
 }
 function draw(plan, c) {
   var g = c.getContext('2d'), cell = Math.min((c.width - 20) / plan.C, (c.height - 20) / plan.R),
@@ -130,7 +135,7 @@ function status(p, el) {
 function frame(now) {
   var dt = (now - last) / 1000; last = now;
   if (playing) {
-    t += dt * +sp.value;
+    t += dt * (parseFloat(sp.value) || 1);
     if (t >= V.T) { if (loop.checked) t = 0; else { t = V.T; playing = false; play.textContent = 'Play'; } }
     sc.value = t;
   }
@@ -138,5 +143,6 @@ function frame(now) {
   plans.forEach(function (p, i) { draw(p, cvs[i]); status(p, sts[i]); });
   requestAnimationFrame(frame);
 }
-setDefaults(); requestAnimationFrame(frame);
+setDefaults(); last = performance.now(); requestAnimationFrame(frame);
+}
 </script>
