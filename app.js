@@ -265,7 +265,7 @@ var cubeMesh = null, buf = null;
 
 /* ------------------------------------------------------------ world state */
 var W = { cols: 7, rows: 4, n: 28, sim: null, cells: [], lanes: null, laneT: 0, laneSolved: false, target: [], lines: [], sec: '', secExtra: 0, tlay: null, so: null, soT: -1, hasEmoji: false };
-var run = { t: 0, tickAcc: 0, startT: 0, state: 'idle', sweepT: -1, sweepDone: true, frames: 0, ms: 0, lockedAt: null, settledAt: null, phase: 'resolving', slideT: 0, bevel: 1, secondaryT: 0, doneSeen: false };
+var run = { t: 0, tickAcc: 0, startT: 0, state: 'idle', sweepT: -1, sweepDone: true, frames: 0, ms: 0, lockedAt: null, settledAt: null, phase: 'resolving', slideT: 0, bevel: 1, blankBevel: 1, messageBevel: 1, secondaryT: 0, doneSeen: false };
 var rng = G.createRng(S.seed * 7 + 3);          // build-time only: per-cell seed
 var rngDir = G.createRng(S.seed * 7 + 4);       // pickDir only
 var rngFlip = G.createRng(S.seed * 7 + 5);      // flip scheduling only
@@ -503,7 +503,7 @@ function tlOpts() {
 }
 function updateTimeline() {
   var tl = CT.timeline(tlOpts());
-  run.phase = tl.phase; run.slideT = tl.slideT; run.bevel = tl.bevel; run.secondaryT = tl.secondaryT;
+  run.phase = tl.phase; run.slideT = tl.slideT; run.bevel = tl.bevel; run.blankBevel = tl.blankBevel; run.messageBevel = tl.messageBevel; run.secondaryT = tl.secondaryT;
   document.body.dataset.phase = tl.phase;
   if (tl.slideT > 0 && !run.tightFresh) { run.tightFresh = true; retight(); }   // final font is loaded by now; remeasure once
   if (tl.slideT !== run.soT_) {
@@ -562,7 +562,8 @@ function writeInstances() {
     buf.gly[o4] = gsc; buf.gly[o4 + 1] = 0; buf.gly[o4 + 2] = uv && !uv.color ? baseShift(sh) : 0; buf.gly[o4 + 3] = uv && uv.color ? 1 : 0;
     var shine = 0;
     if (sweepS !== null && !W.so) { var z = (x * .9 - y * .5 - (sweepS * (cols + rows) * .9 - (cols + rows) * .35)) / 1.1; shine = Math.exp(-z * z) * .85; }
-    buf.fx[o4] = c.blur; buf.fx[o4 + 1] = Math.max(c.act, laneGlass); buf.fx[o4 + 2] = shine; buf.fx[o4 + 3] = c.seed * 10;
+    buf.fx[o4] = c.blur; var glass = id < W.n && W.target[id] !== ' ' ? Math.max(c.act, run.messageBevel) : Math.min(c.act, run.blankBevel);   // message cubes keep glass until every cube resolved; blank cubes fade first
+    buf.fx[o4 + 1] = Math.max(glass, laneGlass); buf.fx[o4 + 2] = shine; buf.fx[o4 + 3] = c.seed * 10;
     buf.mot[o2] = mx; buf.mot[o2 + 1] = my;
     n++;
   }
